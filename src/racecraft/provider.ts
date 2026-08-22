@@ -15,7 +15,8 @@ const EMPTY_SNAPSHOT: StrivingSnapshot = {
  * configured. Until then the UI can boot safely with an empty championship.
  */
 export async function loadStrivingSnapshot(): Promise<StrivingSnapshot> {
-  const url = import.meta.env.VITE_RACECRAFT_SNAPSHOT_URL
+  const rawUrl = import.meta.env.VITE_RACECRAFT_SNAPSHOT_URL
+  const url = typeof rawUrl === 'string' ? rawUrl : ''
 
   if (!url) return EMPTY_SNAPSHOT
 
