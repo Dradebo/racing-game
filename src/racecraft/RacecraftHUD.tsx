@@ -4,6 +4,7 @@ import { loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { enforceDisplayBoundary } from './displayBoundary'
+import { publishReplayState } from './replayBridge'
 
 const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
 const SNAPSHOT_EVENT = 'striving-observation:snapshot'
@@ -27,13 +28,25 @@ export function RacecraftHUD(): JSX.Element | null {
   }, [])
 
   const race = useMemo(() => chooseRace(snapshot), [snapshot])
-  if (!race) return null
-
-  const laps = race.circuit.laps
-  const currentIndex = Math.max(laps.findIndex((lap) => lap.id === race.currentLapId), 0)
+  const laps = race?.circuit.laps ?? []
+  const currentIndex = race ? Math.max(laps.findIndex((lap) => lap.id === race.currentLapId), 0) : 0
   const currentLap = laps[currentIndex]
   const finished = laps.filter((lap) => lap.status === 'finished').length
-  const progress = race.status === 'finished' ? 100 : laps.length ? Math.round((finished / laps.length) * 100) : 0
+  const progress = race?.status === 'finished' ? 100 : laps.length ? Math.round((finished / laps.length) * 100) : 0
+
+  useEffect(() => {
+    if (!race) return
+    const latest = race.history?.[race.history.length - 1]
+    publishReplayState({
+      raceId: race.id,
+      raceName: race.name,
+      progress: latest?.progress ?? progress,
+      kind: latest?.kind ?? (race.status === 'finished' ? 'finish' : race.status === 'parked' ? 'rest' : race.status === 'waiting_external' ? 'wait' : 'progress'),
+      status: race.status,
+    })
+  }, [race, progress])
+
+  if (!race) return null
 
   return (
     <div className="racecraft-hud" aria-label="Current race state">
