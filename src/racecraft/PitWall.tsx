@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Race, StrivingSnapshot } from './types'
-import { clearLocalSnapshot, importSnapshotFile, loadLocalSnapshot } from './localState'
+import { clearLocalSnapshot, importSnapshotFile, loadLocalSnapshot, saveLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
 import { publishReplayState } from './replayBridge'
 import './pitWall.css'
@@ -20,6 +20,43 @@ function terminalCopy(race: Race): { title: string; detail: string; tone: string
   if (race.status === 'parked') return { title: 'GARAGE DAY', detail: 'Progress intentionally paused. No anomaly generated.', tone: 'rest' }
   if (race.status === 'waiting_me') return { title: 'YOUR BATON', detail: 'The race is intact and waiting for your next legal move.', tone: 'waiting' }
   return { title: 'LIVE RACE', detail: 'Striving is still in motion.', tone: 'live' }
+}
+
+function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
+  const races = snapshot.races.map((race) => {
+    if (race.id !== 'pesa-smart') return race
+
+    const laps = race.circuit.laps.map((lap, index) => {
+      if (index === 0) return { ...lap, status: 'finished' as const }
+      if (index === 1) return { ...lap, status: 'in_progress' as const }
+      return lap
+    })
+
+    const nextProgress = Math.max(progress({ ...race, circuit: { ...race.circuit, laps } }), 50)
+    const history = [
+      ...(race.history ?? []),
+      {
+        id: `live-${Date.now()}`,
+        label: 'Playthrough evidence captured',
+        detail: 'Manual live event for V0: the current lap closed and the next legal lap became active.',
+        kind: 'verification' as const,
+        progress: nextProgress,
+        confidence: 'observed' as const,
+      },
+    ]
+
+    return {
+      ...race,
+      circuit: { ...race.circuit, laps },
+      currentLapId: laps[1]?.id ?? race.currentLapId,
+      nextLegalLap: laps[1]?.name ?? race.nextLegalLap,
+      lastMeaningfulEvent: new Date().toISOString(),
+      history,
+      confidence: 'observed' as const,
+    }
+  })
+
+  return { ...snapshot, generatedAt: new Date().toISOString(), races }
 }
 
 export function PitWall(): JSX.Element {
@@ -77,6 +114,14 @@ export function PitWall(): JSX.Element {
       <div className="racecraft-actions">
         <label>LOAD PRIVATE SNAPSHOT<input type="file" accept="application/json,.json" onChange={(event) => onImport(event.target.files?.[0])} /></label>
         <button onClick={() => { clearLocalSnapshot(); setSnapshot(demoSnapshot); setSelectedRaceId(demoSnapshot.races[0]?.id); setReplayIndex(0) }}>DEMO STATE</button>
+        <button onClick={() => {
+          const next = advancePesaSmart(snapshot)
+          saveLocalSnapshot(next)
+          setSnapshot(next)
+          const race = next.races.find((item) => item.id === 'pesa-smart')
+          setSelectedRaceId('pesa-smart')
+          setReplayIndex(Math.max((race?.history?.length ?? 1) - 1, 0))
+        }}>INJECT PESA LIVE EVENT</button>
       </div>
       {error && <p className="racecraft-error">{error}</p>}
 
