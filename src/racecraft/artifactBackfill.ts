@@ -1,4 +1,5 @@
 import type { Artifact, Race, StrivingSnapshot } from './types'
+import { withRetrievalBackfill } from './retrievalBackfill'
 
 const lawrebacComplete: Artifact = {
   id: 'artifact-lawrebac-complete',
@@ -136,9 +137,10 @@ function attachToRace(race: Race): Race {
 }
 
 export function withArtifactBackfill(snapshot: StrivingSnapshot): StrivingSnapshot {
-  return {
+  const base = {
     ...snapshot,
     artifacts: [...(snapshot.artifacts ?? []), ...artifacts],
     races: snapshot.races.map(attachToRace),
   }
+  return withRetrievalBackfill(base)
 }
