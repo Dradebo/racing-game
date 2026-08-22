@@ -111,6 +111,7 @@ export type Race = {
   lastMeaningfulEvent?: string
   nextLegalLap?: string
   resumeUrl?: string
+  dueAt?: string
   confidence: Confidence
   history?: RaceEvent[]
 }
