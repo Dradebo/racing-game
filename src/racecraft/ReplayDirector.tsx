@@ -4,7 +4,7 @@ import { loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { enforceDisplayBoundary } from './displayBoundary'
-import { publishReplayState, WATCH_REPLAY_EVENT, type ReplayVisualState } from './replayBridge'
+import { publishReplayMode, publishReplayState, WATCH_REPLAY_EVENT, type ReplayVisualState } from './replayBridge'
 import './replayDirector.css'
 
 const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
@@ -35,6 +35,7 @@ export function ReplayDirector(): JSX.Element | null {
       if (!raceId) return
       const race = snapshot.races.find((item) => item.id === raceId)
       if (!race || !(race.history?.length)) return
+      publishReplayMode(true)
       setActiveRaceId(raceId)
       setEventIndex(0)
       setPlaying(true)
@@ -46,12 +47,20 @@ export function ReplayDirector(): JSX.Element | null {
       window.removeEventListener(SNAPSHOT_EVENT, snapshotHandler)
       window.removeEventListener(WATCH_REPLAY_EVENT, replayHandler)
       if (timer.current) window.clearTimeout(timer.current)
+      publishReplayMode(false)
     }
   }, [snapshot])
 
   const race = useMemo(() => activeRaceId ? snapshot.races.find((item) => item.id === activeRaceId) : undefined, [snapshot, activeRaceId])
   const events = race?.history ?? []
   const event = events[eventIndex]
+
+  function closeReplay() {
+    if (timer.current) window.clearTimeout(timer.current)
+    setPlaying(false)
+    setActiveRaceId(null)
+    publishReplayMode(false)
+  }
 
   useEffect(() => {
     if (!race || !event) return
@@ -74,7 +83,7 @@ export function ReplayDirector(): JSX.Element | null {
     const dwell = event.kind === 'blocker' || event.kind === 'wait' || event.kind === 'finish' ? 2600 : 1900
     timer.current = window.setTimeout(() => {
       if (eventIndex >= events.length - 1) {
-        setPlaying(false)
+        closeReplay()
         return
       }
       setEventIndex((value) => value + 1)
@@ -101,7 +110,7 @@ export function ReplayDirector(): JSX.Element | null {
         <button disabled={eventIndex <= 0} onClick={() => { setPlaying(false); setEventIndex((value) => Math.max(0, value - 1)) }}>←</button>
         <button onClick={() => setPlaying((value) => !value)}>{playing ? 'PAUSE' : 'PLAY'}</button>
         <button disabled={eventIndex >= events.length - 1} onClick={() => { setPlaying(false); setEventIndex((value) => Math.min(events.length - 1, value + 1)) }}>→</button>
-        <button onClick={() => { setPlaying(false); setActiveRaceId(null) }}>CLOSE</button>
+        <button onClick={closeReplay}>CLOSE</button>
       </div>
     </aside>
   )
