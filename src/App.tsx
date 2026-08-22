@@ -7,6 +7,7 @@ import { levelLayer, useStore } from './store'
 import { PitWall } from './racecraft/PitWall'
 import { RaceGhost } from './racecraft/RaceGhost'
 import { ObservationCamera } from './racecraft/ObservationCamera'
+import { RacecraftHUD } from './racecraft/RacecraftHUD'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -28,7 +29,7 @@ export function App(): JSX.Element {
           <RaceGhost />
           <Environment files="textures/dikhololo_night_1k.hdr" />
         </Canvas>
-        <div className="racecraft-world-label"><span>LIVE RACE VIEW</span><b>Striving rendered from current state</b></div>
+        <RacecraftHUD />
       </section>
       <PitWall />
     </main>
