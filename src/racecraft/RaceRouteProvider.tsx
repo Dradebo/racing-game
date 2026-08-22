@@ -16,6 +16,46 @@ const fallbackRoute = new CatmullRomCurve3(
 
 const RaceRouteContext = createContext<CatmullRomCurve3>(fallbackRoute)
 
+type HeapItem = { index: number; score: number }
+
+class MinHeap {
+  private items: HeapItem[] = []
+
+  push(item: HeapItem) {
+    this.items.push(item)
+    let child = this.items.length - 1
+    while (child > 0) {
+      const parent = Math.floor((child - 1) / 2)
+      if (this.items[parent].score <= item.score) break
+      this.items[child] = this.items[parent]
+      child = parent
+    }
+    this.items[child] = item
+  }
+
+  pop(): HeapItem | undefined {
+    if (!this.items.length) return undefined
+    const root = this.items[0]
+    const last = this.items.pop()!
+    if (!this.items.length) return root
+
+    let parent = 0
+    while (true) {
+      const left = parent * 2 + 1
+      const right = left + 1
+      if (left >= this.items.length) break
+      const child = right < this.items.length && this.items[right].score < this.items[left].score ? right : left
+      if (this.items[child].score >= last.score) break
+      this.items[parent] = this.items[child]
+      parent = child
+    }
+    this.items[parent] = last
+    return root
+  }
+
+  get size() { return this.items.length }
+}
+
 function nearestVertex(geometry: BufferGeometry, target: Vector3): number {
   const position = geometry.getAttribute('position')
   let best = 0
@@ -37,12 +77,10 @@ function buildAdjacency(geometry: BufferGeometry): number[][] {
   const adjacency = Array.from({ length: count }, () => new Set<number>())
   const index = geometry.getIndex()
   const triangles = index ? index.count : count
-
   const at = (i: number) => index ? index.getX(i) : i
+
   for (let i = 0; i + 2 < triangles; i += 3) {
-    const a = at(i)
-    const b = at(i + 1)
-    const c = at(i + 2)
+    const a = at(i), b = at(i + 1), c = at(i + 2)
     adjacency[a].add(b); adjacency[a].add(c)
     adjacency[b].add(a); adjacency[b].add(c)
     adjacency[c].add(a); adjacency[c].add(b)
@@ -50,44 +88,44 @@ function buildAdjacency(geometry: BufferGeometry): number[][] {
   return adjacency.map((set) => Array.from(set))
 }
 
+function edgeCost(geometry: BufferGeometry, a: number, b: number): number {
+  const p = geometry.getAttribute('position')
+  return Math.hypot(p.getX(a) - p.getX(b), p.getY(a) - p.getY(b), p.getZ(a) - p.getZ(b))
+}
+
+function heuristic(geometry: BufferGeometry, a: number, b: number): number {
+  return edgeCost(geometry, a, b)
+}
+
 function shortestPath(geometry: BufferGeometry, adjacency: number[][], start: number, goal: number): number[] {
-  const position = geometry.getAttribute('position')
-  const distance = new Float64Array(position.count)
-  const previous = new Int32Array(position.count)
-  const visited = new Uint8Array(position.count)
-  distance.fill(Number.POSITIVE_INFINITY)
+  const count = geometry.getAttribute('position').count
+  const g = new Float64Array(count)
+  const previous = new Int32Array(count)
+  const closed = new Uint8Array(count)
+  g.fill(Number.POSITIVE_INFINITY)
   previous.fill(-1)
-  distance[start] = 0
+  g[start] = 0
 
-  for (;;) {
-    let current = -1
-    let best = Number.POSITIVE_INFINITY
-    for (let i = 0; i < distance.length; i += 1) {
-      if (!visited[i] && distance[i] < best) {
-        best = distance[i]
-        current = i
-      }
-    }
-    if (current === -1 || current === goal) break
-    visited[current] = 1
+  const open = new MinHeap()
+  open.push({ index: start, score: heuristic(geometry, start, goal) })
 
-    const ax = position.getX(current)
-    const ay = position.getY(current)
-    const az = position.getZ(current)
-    for (const next of adjacency[current]) {
-      if (visited[next]) continue
-      const dx = position.getX(next) - ax
-      const dy = position.getY(next) - ay
-      const dz = position.getZ(next) - az
-      const candidate = best + Math.hypot(dx, dy, dz)
-      if (candidate < distance[next]) {
-        distance[next] = candidate
-        previous[next] = current
-      }
+  while (open.size) {
+    const current = open.pop()!
+    if (closed[current.index]) continue
+    if (current.index === goal) break
+    closed[current.index] = 1
+
+    for (const next of adjacency[current.index]) {
+      if (closed[next]) continue
+      const candidate = g[current.index] + edgeCost(geometry, current.index, next)
+      if (candidate >= g[next]) continue
+      g[next] = candidate
+      previous[next] = current.index
+      open.push({ index: next, score: candidate + heuristic(geometry, next, goal) })
     }
   }
 
-  if (!Number.isFinite(distance[goal])) return []
+  if (!Number.isFinite(g[goal])) return []
   const path: number[] = []
   for (let cursor = goal; cursor !== -1; cursor = previous[cursor]) {
     path.push(cursor)
@@ -98,7 +136,7 @@ function shortestPath(geometry: BufferGeometry, adjacency: number[][], start: nu
 
 function pointFor(geometry: BufferGeometry, index: number): Vector3 {
   const position = geometry.getAttribute('position')
-  return new Vector3(position.getX(index), position.getY(index) + 0.12, position.getZ(index))
+  return new Vector3(position.getX(index), position.getY(index) + 0.18, position.getZ(index))
 }
 
 function deriveRoute(geometry?: BufferGeometry): CatmullRomCurve3 {
@@ -113,10 +151,10 @@ function deriveRoute(geometry?: BufferGeometry): CatmullRomCurve3 {
     const joined = first.length && second.length ? [...first, ...second.slice(1)] : []
     if (joined.length < 4) return fallbackRoute
 
-    const stride = Math.max(1, Math.floor(joined.length / 72))
+    const stride = Math.max(1, Math.floor(joined.length / 64))
     const points = joined
-      .filter((_, index) => index === 0 || index === joined.length - 1 || index % stride === 0)
-      .map((index) => pointFor(geometry, index))
+      .filter((_, order) => order === 0 || order === joined.length - 1 || order % stride === 0)
+      .map((vertexIndex) => pointFor(geometry, vertexIndex))
 
     return new CatmullRomCurve3(points, false, 'centripetal', 0.5)
   } catch {
@@ -126,7 +164,8 @@ function deriveRoute(geometry?: BufferGeometry): CatmullRomCurve3 {
 
 export function RaceRouteProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const gltf = useGLTF('/models/track-draco.glb') as any
-  const route = useMemo(() => deriveRoute(gltf.nodes?.strip?.geometry), [gltf])
+  const stripGeometry = gltf.nodes?.strip?.geometry as BufferGeometry | undefined
+  const route = useMemo(() => deriveRoute(stripGeometry), [stripGeometry])
   return <RaceRouteContext.Provider value={route}>{children}</RaceRouteContext.Provider>
 }
 
