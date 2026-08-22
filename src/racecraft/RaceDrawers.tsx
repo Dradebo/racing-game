@@ -29,6 +29,12 @@ function progress(race: Race): number {
 
 function inspectRace(race: Race) {
   window.dispatchEvent(new CustomEvent(INSPECT_EVENT, { detail: { raceId: race.id } }))
+  window.setTimeout(() => {
+    const inspector = document.querySelector<HTMLElement>('.racecraft-inspector')
+    if (!inspector) return
+    inspector.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    inspector.focus({ preventScroll: true })
+  }, 80)
 }
 
 function RaceCompartment({ race, attentionReason }: { race: Race; attentionReason?: string }) {
