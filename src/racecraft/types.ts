@@ -28,8 +28,8 @@ export type ArtifactContribution =
 
 export type Artifact = {
   id: string
-  kind: 'commit' | 'branch' | 'pull_request' | 'deployment' | 'document' | 'spreadsheet' | 'slide' | 'email' | 'message' | 'field_note' | 'report' | 'screenshot' | 'audio' | 'image' | 'video' | 'code' | 'agent_output' | 'manual_record' | 'other'
-  source: 'github' | 'drive' | 'chat' | 'email' | 'deployment' | 'manual' | 'fieldwork' | 'agent'
+  kind: 'commit' | 'branch' | 'pull_request' | 'deployment' | 'package_release' | 'document' | 'spreadsheet' | 'slide' | 'email' | 'message' | 'field_note' | 'report' | 'screenshot' | 'audio' | 'image' | 'video' | 'code' | 'agent_output' | 'manual_record' | 'other'
+  source: 'github' | 'drive' | 'chat' | 'email' | 'deployment' | 'registry' | 'manual' | 'fieldwork' | 'agent'
   label: string
   uri?: string
   observedAt?: string
