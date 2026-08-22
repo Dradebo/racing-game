@@ -12,6 +12,15 @@ function progress(race: Race): number {
   return Math.round((done / laps.length) * 100)
 }
 
+function terminalCopy(race: Race): { title: string; detail: string; tone: string } {
+  if (race.status === 'finished') return { title: 'PODIUM', detail: 'Verified finish. Proof banked. Capability remains in the garage.', tone: 'podium' }
+  if (race.status === 'waiting_external') return { title: 'PIT HOLD', detail: 'No movement expected until an external dependency returns.', tone: 'waiting' }
+  if (race.status === 'stale') return { title: 'NO SIGNAL', detail: 'The race stopped reporting. This is a custody problem, not a moral verdict.', tone: 'stale' }
+  if (race.status === 'parked') return { title: 'GARAGE DAY', detail: 'Progress intentionally paused. No anomaly generated.', tone: 'rest' }
+  if (race.status === 'waiting_me') return { title: 'YOUR BATON', detail: 'The race is intact and waiting for your next legal move.', tone: 'waiting' }
+  return { title: 'LIVE RACE', detail: 'Striving is still in motion.', tone: 'live' }
+}
+
 export function PitWall(): JSX.Element {
   const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? demoSnapshot)
   const [selectedRaceId, setSelectedRaceId] = useState(snapshot.races[0]?.id)
@@ -26,6 +35,8 @@ export function PitWall(): JSX.Element {
 
   const history = selected?.history ?? []
   const replayEvent = history[Math.min(replayIndex, Math.max(history.length - 1, 0))]
+  const replayAtEnd = history.length > 0 && replayIndex === history.length - 1
+  const terminal = selected ? terminalCopy(selected) : null
 
   async function onImport(file?: File) {
     if (!file) return
@@ -83,6 +94,15 @@ export function PitWall(): JSX.Element {
                 </div>
                 <input type="range" min={0} max={Math.max(history.length - 1, 0)} value={Math.min(replayIndex, Math.max(history.length - 1, 0))} onChange={(event) => setReplayIndex(Number(event.target.value))} />
                 <div className="racecraft-replay-event"><strong>{replayEvent?.label}</strong><small>{replayEvent?.kind.replace('_', ' ')} · {replayEvent?.confidence}</small>{replayEvent?.detail && <p>{replayEvent.detail}</p>}</div>
+
+                {replayAtEnd && terminal && (
+                  <div className={`racecraft-terminal ${terminal.tone}`}>
+                    <span>{terminal.title}</span>
+                    <strong>{selected.name}</strong>
+                    <p>{terminal.detail}</p>
+                    {selected.status === 'finished' && <div className="racecraft-podium"><i>2</i><b>1</b><i>3</i></div>}
+                  </div>
+                )}
               </div>
             )}
 
