@@ -3,6 +3,7 @@ import { useGLTF, useTexture } from '@react-three/drei'
 import 'inter-ui'
 import './styles.css'
 import './racecraft/mobilePriority.css'
+import './racecraft/isolation.css'
 import { App } from './App'
 
 useTexture.preload('/textures/heightmap_1024.png')
