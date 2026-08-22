@@ -12,14 +12,36 @@ export type RaceStatus =
 
 export type RaceHealth = 'green' | 'amber' | 'red' | 'rest'
 
-export type EvidenceRef = {
+export type ArtifactContribution =
+  | 'starts_lap'
+  | 'advances_lap'
+  | 'closes_lap'
+  | 'blocks_lap'
+  | 'defines_circuit'
+  | 'changes_circuit'
+  | 'starts_race'
+  | 'finishes_race'
+  | 'changes_race_state'
+  | 'affects_season'
+  | 'seeds_race'
+  | 'handoff'
+
+export type Artifact = {
   id: string
+  kind: 'commit' | 'branch' | 'pull_request' | 'deployment' | 'document' | 'spreadsheet' | 'slide' | 'email' | 'message' | 'field_note' | 'report' | 'screenshot' | 'audio' | 'image' | 'video' | 'code' | 'agent_output' | 'manual_record' | 'other'
   source: 'github' | 'drive' | 'chat' | 'email' | 'deployment' | 'manual' | 'fieldwork' | 'agent'
   label: string
   uri?: string
   observedAt?: string
   confidence: Confidence
+  contribution: ArtifactContribution
+  seasonId?: string
+  raceId?: string
+  circuitId?: string
+  lapId?: string
 }
+
+export type EvidenceRef = Artifact
 
 export type Baton = {
   summary: string
@@ -27,7 +49,7 @@ export type Baton = {
   unresolved: string[]
   nextLegalLap?: string
   resumeUrl?: string
-  evidence: EvidenceRef[]
+  evidence: Artifact[]
   writtenAt?: string
 }
 
@@ -38,7 +60,7 @@ export type Lap = {
   finishCondition: string
   expectedMinutes?: number
   actualMinutes?: number
-  evidence: EvidenceRef[]
+  artifacts: Artifact[]
   baton?: Baton
 }
 
@@ -50,6 +72,7 @@ export type Circuit = {
   frozen: string[]
   lapDefinition: string
   closureEvidence: string
+  artifacts?: Artifact[]
   laps: Lap[]
 }
 
@@ -70,6 +93,7 @@ export type RaceEvent = {
   lapId?: string
   progress: number
   confidence: Confidence
+  artifactIds?: string[]
 }
 
 export type Race = {
@@ -82,6 +106,7 @@ export type Race = {
   circuit: Circuit
   currentLapId?: string
   dependencies: Dependency[]
+  artifacts?: Artifact[]
   lastMeaningfulEvent?: string
   nextLegalLap?: string
   resumeUrl?: string
@@ -102,6 +127,7 @@ export type Season = {
   name: string
   theme: string
   raceIds: string[]
+  artifacts?: Artifact[]
 }
 
 export type StrivingSnapshot = {
@@ -109,5 +135,6 @@ export type StrivingSnapshot = {
   doctrine: 'Striving Observation'
   seasons: Season[]
   races: Race[]
+  artifacts: Artifact[]
   recurringTemplates: RaceTemplate[]
 }
