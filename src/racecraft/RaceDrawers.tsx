@@ -4,9 +4,10 @@ import { loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { attentionForRace, attentionRank } from './attention'
+import { enforceDisplayBoundary } from './displayBoundary'
 import './drawers.css'
 
-const hydratedDemo = withArtifactBackfill(demoSnapshot)
+const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
 const SNAPSHOT_EVENT = 'striving-observation:snapshot'
 const INSPECT_EVENT = 'striving-observation:inspect-race'
 
@@ -73,12 +74,12 @@ function RaceCompartment({ race, attentionReason }: { race: Race; attentionReaso
 }
 
 export function RaceDrawers(): JSX.Element {
-  const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? hydratedDemo)
+  const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => enforceDisplayBoundary(loadLocalSnapshot() ?? hydratedDemo))
 
   useEffect(() => {
     const handler = (event: Event) => {
       const next = (event as CustomEvent<StrivingSnapshot>).detail
-      if (next) setSnapshot(next)
+      if (next) setSnapshot(enforceDisplayBoundary(next))
     }
     window.addEventListener(SNAPSHOT_EVENT, handler)
     return () => window.removeEventListener(SNAPSHOT_EVENT, handler)
