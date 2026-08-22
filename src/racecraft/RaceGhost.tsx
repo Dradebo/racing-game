@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CatmullRomCurve3, Vector3 } from 'three'
 import { subscribeReplayState, type ReplayVisualState } from './replayBridge'
-
-const route = new CatmullRomCurve3([
-  new Vector3(-108, 2.2, 215),
-  new Vector3(-45, 4, 120),
-  new Vector3(-18, 3, 15),
-  new Vector3(-60, 3.5, -90),
-  new Vector3(-103, 2.5, -182),
-])
+import { routePoint } from './raceRoute'
 
 function yOffset(kind: string): number {
   if (kind === 'blocker') return 0.15
@@ -32,8 +24,7 @@ export function RaceGhost(): JSX.Element | null {
 
   const position = useMemo(() => {
     if (!state) return null
-    const t = Math.min(Math.max(state.progress / 100, 0), 1)
-    const point = route.getPointAt(t)
+    const point = routePoint(state.progress)
     point.y += yOffset(state.kind)
     return point
   }, [state])
