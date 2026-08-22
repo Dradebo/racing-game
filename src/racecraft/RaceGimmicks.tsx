@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import type { CatmullRomCurve3, Group, InstancedMesh } from 'three'
 import { Object3D, Vector3 } from 'three'
-import type { Race, ReplayVisualState } from './types'
+import type { Race } from './types'
+import type { ReplayVisualState } from './replayBridge'
 import { pointOnRoute, tangentOnRoute } from './RaceRouteProvider'
 
 const temp = new Object3D()
@@ -18,7 +19,7 @@ function frame(route: CatmullRomCurve3, progress: number) {
 
 function TrainBlocker({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
   const gltf = useGLTF('/models/track-draco.glb') as any
-  const ref = useRef<Group>(null)
+  const ref = useRef<Group>(null!)
   const f = useMemo(() => frame(route, Math.min(99, progress + 2)), [route, progress])
 
   useFrame((state) => {
@@ -59,7 +60,7 @@ function MutationRamp({ route, progress }: { route: CatmullRomCurve3; progress: 
 }
 
 function BoostTrail({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
-  const ref = useRef<InstancedMesh>(null)
+  const ref = useRef<InstancedMesh>(null!)
   const count = 18
 
   useFrame((state) => {
@@ -88,7 +89,7 @@ function BoostTrail({ route, progress }: { route: CatmullRomCurve3; progress: nu
 }
 
 function DustCloud({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
-  const ref = useRef<InstancedMesh>(null)
+  const ref = useRef<InstancedMesh>(null!)
   const count = 26
 
   useFrame((state) => {
