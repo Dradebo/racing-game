@@ -15,6 +15,7 @@ function progress(race: Race): number {
 export function PitWall(): JSX.Element {
   const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? demoSnapshot)
   const [selectedRaceId, setSelectedRaceId] = useState(snapshot.races[0]?.id)
+  const [replayIndex, setReplayIndex] = useState(0)
   const [open, setOpen] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,12 +24,16 @@ export function PitWall(): JSX.Element {
     [snapshot, selectedRaceId],
   )
 
+  const history = selected?.history ?? []
+  const replayEvent = history[Math.min(replayIndex, Math.max(history.length - 1, 0))]
+
   async function onImport(file?: File) {
     if (!file) return
     try {
       const next = await importSnapshotFile(file)
       setSnapshot(next)
       setSelectedRaceId(next.races[0]?.id)
+      setReplayIndex(0)
       setError(null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not import snapshot')
@@ -36,52 +41,27 @@ export function PitWall(): JSX.Element {
   }
 
   if (!open) {
-    return (
-      <button className="racecraft-launch" onClick={() => setOpen(true)}>
-        PIT WALL
-      </button>
-    )
+    return <button className="racecraft-launch" onClick={() => setOpen(true)}>PIT WALL</button>
   }
 
   return (
     <aside className="racecraft-shell" aria-label="Striving Observation pit wall">
       <header className="racecraft-header">
-        <div>
-          <span className="racecraft-kicker">STRIVING OBSERVATION</span>
-          <h1>Championship State</h1>
-        </div>
+        <div><span className="racecraft-kicker">STRIVING OBSERVATION</span><h1>Championship State</h1></div>
         <button onClick={() => setOpen(false)} aria-label="Close pit wall">×</button>
       </header>
 
       <div className="racecraft-actions">
-        <label>
-          LOAD PRIVATE SNAPSHOT
-          <input type="file" accept="application/json,.json" onChange={(event) => onImport(event.target.files?.[0])} />
-        </label>
-        <button
-          onClick={() => {
-            clearLocalSnapshot()
-            setSnapshot(demoSnapshot)
-            setSelectedRaceId(demoSnapshot.races[0]?.id)
-          }}
-        >
-          DEMO STATE
-        </button>
+        <label>LOAD PRIVATE SNAPSHOT<input type="file" accept="application/json,.json" onChange={(event) => onImport(event.target.files?.[0])} /></label>
+        <button onClick={() => { clearLocalSnapshot(); setSnapshot(demoSnapshot); setSelectedRaceId(demoSnapshot.races[0]?.id); setReplayIndex(0) }}>DEMO STATE</button>
       </div>
       {error && <p className="racecraft-error">{error}</p>}
 
       <div className="racecraft-grid">
         <section className="racecraft-races">
           {snapshot.races.map((race) => (
-            <button
-              key={race.id}
-              className={`racecraft-race ${selected?.id === race.id ? 'selected' : ''}`}
-              onClick={() => setSelectedRaceId(race.id)}
-            >
-              <span className="racecraft-race-topline">
-                <strong>{race.name}</strong>
-                <em>{race.status.replace('_', ' ')}</em>
-              </span>
+            <button key={race.id} className={`racecraft-race ${selected?.id === race.id ? 'selected' : ''}`} onClick={() => { setSelectedRaceId(race.id); setReplayIndex(0) }}>
+              <span className="racecraft-race-topline"><strong>{race.name}</strong><em>{race.status.replace('_', ' ')}</em></span>
               <span className="racecraft-track"><i style={{ width: `${progress(race)}%` }} /></span>
               <span className="racecraft-race-meta">{race.circuit.name} · {progress(race)}%</span>
             </button>
@@ -94,22 +74,28 @@ export function PitWall(): JSX.Element {
             <h2>{selected.name}</h2>
             <p className="racecraft-finish"><b>FINISH LINE</b><br />{selected.finishLine}</p>
 
+            {history.length > 0 && (
+              <div className="racecraft-replay">
+                <div className="racecraft-replay-head"><span>RACE REPLAY</span><b>{replayEvent?.progress ?? 0}%</b></div>
+                <div className="racecraft-replay-track">
+                  <i style={{ left: `${replayEvent?.progress ?? 0}%` }} />
+                  {history.map((event) => <span key={event.id} title={event.label} style={{ left: `${event.progress}%` }} />)}
+                </div>
+                <input type="range" min={0} max={Math.max(history.length - 1, 0)} value={Math.min(replayIndex, Math.max(history.length - 1, 0))} onChange={(event) => setReplayIndex(Number(event.target.value))} />
+                <div className="racecraft-replay-event"><strong>{replayEvent?.label}</strong><small>{replayEvent?.kind.replace('_', ' ')} · {replayEvent?.confidence}</small>{replayEvent?.detail && <p>{replayEvent.detail}</p>}</div>
+              </div>
+            )}
+
             <div className="racecraft-laps">
               {selected.circuit.laps.map((lap, index) => (
                 <div key={lap.id} className={`racecraft-lap ${lap.status}`}>
                   <span>{String(index + 1).padStart(2, '0')}</span>
-                  <div>
-                    <strong>{lap.name}</strong>
-                    <small>{lap.status.replace('_', ' ')}</small>
-                  </div>
+                  <div><strong>{lap.name}</strong><small>{lap.status.replace('_', ' ')}</small></div>
                 </div>
               ))}
             </div>
 
-            <div className="racecraft-next">
-              <span>NEXT LEGAL LAP</span>
-              <strong>{selected.nextLegalLap ?? (selected.status === 'finished' ? 'Race complete' : 'Undeclared')}</strong>
-            </div>
+            <div className="racecraft-next"><span>NEXT LEGAL LAP</span><strong>{selected.nextLegalLap ?? (selected.status === 'finished' ? 'Race complete' : 'Undeclared')}</strong></div>
           </section>
         )}
       </div>
