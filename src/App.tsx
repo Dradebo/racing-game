@@ -9,6 +9,7 @@ import { RaceGhost } from './racecraft/RaceGhost'
 import { ObservationCamera } from './racecraft/ObservationCamera'
 import { RacecraftHUD } from './racecraft/RacecraftHUD'
 import { RaceDrawers } from './racecraft/RaceDrawers'
+import { RaceScene } from './racecraft/RaceScene'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -27,6 +28,7 @@ export function App(): JSX.Element {
           <ambientLight layers={layers} intensity={0.25} />
           <directionalLight layers={layers} position={[0, 50, 150]} intensity={1.1} castShadow />
           <Track />
+          <RaceScene />
           <RaceGhost />
           <Environment files="textures/dikhololo_night_1k.hdr" />
         </Canvas>
