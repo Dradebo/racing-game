@@ -92,6 +92,7 @@ export function PitWall(): JSX.Element {
     () => snapshot.seasons.map((season) => ({
       ...season,
       races: season.raceIds.map((id) => snapshot.races.find((race) => race.id === id)).filter(Boolean) as Race[],
+      artifactCount: (snapshot.artifacts ?? []).filter((artifact) => artifact.seasonId === season.id).length,
     })),
     [snapshot],
   )
@@ -105,6 +106,10 @@ export function PitWall(): JSX.Element {
   const activeCount = snapshot.races.filter((race) => race.status === 'racing' || race.status === 'waiting_me').length
   const waitingCount = snapshot.races.filter((race) => race.status === 'waiting_external').length
   const podiumCount = snapshot.races.filter((race) => race.status === 'finished').length
+  const selectedArtifacts = useMemo(
+    () => (snapshot.artifacts ?? []).filter((artifact) => artifact.raceId === selected?.id),
+    [snapshot, selected],
+  )
   const replayArtifacts = useMemo(() => {
     if (!replayEvent?.artifactIds?.length) return []
     return (snapshot.artifacts ?? []).filter((artifact) => replayEvent.artifactIds?.includes(artifact.id))
@@ -156,7 +161,7 @@ export function PitWall(): JSX.Element {
       </header>
 
       <div className="racecraft-scoreboard">
-        <span><b>{activeCount}</b> live</span><span><b>{waitingCount}</b> pit hold</span><span><b>{podiumCount}</b> podiums</span>
+        <span><b>{activeCount}</b> live</span><span><b>{waitingCount}</b> pit hold</span><span><b>{podiumCount}</b> podiums</span><span><b>{snapshot.artifacts?.length ?? 0}</b> artifacts</span>
       </div>
 
       <div className="racecraft-actions">
@@ -176,14 +181,17 @@ export function PitWall(): JSX.Element {
         <nav className="racecraft-races" aria-label="Championship races">
           {grouped.map((season) => (
             <section className="racecraft-season" key={season.id}>
-              <div className="racecraft-season-head"><strong>{season.name}</strong><span>{season.theme}</span></div>
-              {season.races.map((race) => (
-                <button key={race.id} className={`racecraft-race ${selected?.id === race.id ? 'selected' : ''}`} onClick={() => selectRace(race)}>
-                  <span className="racecraft-race-topline"><strong>{race.name}</strong><em>{race.status.replace('_', ' ')}</em></span>
-                  <span className="racecraft-track"><i style={{ width: `${progress(race)}%` }} /></span>
-                  <span className="racecraft-race-meta">{race.circuit.name} · {progress(race)}%</span>
-                </button>
-              ))}
+              <div className="racecraft-season-head"><strong>{season.name}</strong><span>{season.theme} · {season.artifactCount} artifacts</span></div>
+              {season.races.map((race) => {
+                const raceArtifacts = (snapshot.artifacts ?? []).filter((artifact) => artifact.raceId === race.id).length
+                return (
+                  <button key={race.id} className={`racecraft-race ${selected?.id === race.id ? 'selected' : ''}`} onClick={() => selectRace(race)}>
+                    <span className="racecraft-race-topline"><strong>{race.name}</strong><em>{race.status.replace('_', ' ')}</em></span>
+                    <span className="racecraft-track"><i style={{ width: `${progress(race)}%` }} /></span>
+                    <span className="racecraft-race-meta">{race.circuit.name} · {progress(race)}% · {raceArtifacts} artifacts</span>
+                  </button>
+                )
+              })}
             </section>
           ))}
         </nav>
@@ -199,6 +207,7 @@ export function PitWall(): JSX.Element {
               <span>CURRENT LAP</span>
               <strong>{selected.circuit.laps.find((lap) => lap.id === selected.currentLapId)?.name ?? 'Race complete'}</strong>
               <small>{selected.nextLegalLap ? `Next legal lap: ${selected.nextLegalLap}` : 'No further lap declared.'}</small>
+              <small>{selectedArtifacts.length} artifact{selectedArtifacts.length === 1 ? '' : 's'} currently mapped to this race</small>
             </div>
 
             <p className="racecraft-finish"><b>FINISH LINE</b><br />{selected.finishLine}</p>
