@@ -156,11 +156,12 @@ export function RaceGimmicks({ race, visual, route }: { race: Race; visual: Repl
   const previous = currentIndex > 0 ? history[currentIndex - 1] : undefined
   const verifiedMomentum = visual.playing && (visual.kind === 'progress' || visual.kind === 'verification') && Boolean(previous) && visual.progress > (previous?.progress ?? visual.progress)
   const recovering = previous?.kind === 'blocker' && (visual.kind === 'progress' || visual.kind === 'verification')
+  const externalBlocker = visual.kind === 'blocker' && race.dependencies.some((dependency) => dependency.type === 'waiting_on')
 
   return (
     <group>
       <RecoverySkids race={race} route={route} />
-      {visual.kind === 'blocker' && <TrainBlocker route={route} progress={visual.progress} />}
+      {externalBlocker && <TrainBlocker route={route} progress={visual.progress} />}
       {visual.kind === 'mutation' && <MutationRamp route={route} progress={visual.progress} />}
       {verifiedMomentum && <BoostTrail route={route} progress={visual.progress} />}
       {(visual.kind === 'mutation' || recovering) && <DustCloud route={route} progress={visual.progress} />}
