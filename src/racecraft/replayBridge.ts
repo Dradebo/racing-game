@@ -4,6 +4,7 @@ export type ReplayVisualState = {
   progress: number
   kind: string
   status: string
+  eventId?: string
   eventLabel?: string
   eventDetail?: string
   eventIndex?: number
