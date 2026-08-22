@@ -1,11 +1,35 @@
 import type { StrivingSnapshot } from './types'
 
-const STORAGE_KEY = 'striving-observation.snapshot.v0'
+const STORAGE_KEY = 'striving-observation.snapshot.v1'
+const LEGACY_STORAGE_KEY = 'striving-observation.snapshot.v0'
+
+function isSnapshot(value: unknown): value is StrivingSnapshot {
+  if (!value || typeof value !== 'object') return false
+  const snapshot = value as Partial<StrivingSnapshot>
+  return snapshot.doctrine === 'Striving Observation' && Array.isArray(snapshot.seasons) && Array.isArray(snapshot.races)
+}
 
 export function loadLocalSnapshot(): StrivingSnapshot | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as StrivingSnapshot) : null
+    const current = window.localStorage.getItem(STORAGE_KEY)
+    if (current) {
+      const parsed = JSON.parse(current) as unknown
+      return isSnapshot(parsed) ? parsed : null
+    }
+
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (!legacy) return null
+
+    const parsed = JSON.parse(legacy) as unknown
+    if (!isSnapshot(parsed)) return null
+
+    // Only migrate legacy state that already carries the artifact-aware schema.
+    // Older demo snapshots are intentionally ignored so stale demo data cannot
+    // mask newer backfill bundled with the renderer.
+    if (!Array.isArray(parsed.artifacts)) return null
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+    return parsed
   } catch {
     return null
   }
@@ -17,13 +41,14 @@ export function saveLocalSnapshot(snapshot: StrivingSnapshot): void {
 
 export function clearLocalSnapshot(): void {
   window.localStorage.removeItem(STORAGE_KEY)
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY)
 }
 
 export async function importSnapshotFile(file: File): Promise<StrivingSnapshot> {
   const text = await file.text()
-  const parsed = JSON.parse(text) as StrivingSnapshot
+  const parsed = JSON.parse(text) as unknown
 
-  if (parsed.doctrine !== 'Striving Observation' || !Array.isArray(parsed.seasons) || !Array.isArray(parsed.races)) {
+  if (!isSnapshot(parsed)) {
     throw new Error('Not a valid Striving Observation snapshot')
   }
 
