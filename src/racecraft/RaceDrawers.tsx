@@ -5,6 +5,7 @@ import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { attentionForRace, attentionRank } from './attention'
 import { enforceDisplayBoundary } from './displayBoundary'
+import { requestWatchReplay } from './replayBridge'
 import './drawers.css'
 
 const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
@@ -35,6 +36,11 @@ function inspectRace(race: Race) {
     inspector.scrollIntoView({ behavior: 'smooth', block: 'start' })
     inspector.focus({ preventScroll: true })
   }, 80)
+}
+
+function watchRace(race: Race) {
+  requestWatchReplay(race.id)
+  window.setTimeout(() => document.querySelector('.racecraft-world')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40)
 }
 
 function RaceCompartment({ race, attentionReason }: { race: Race; attentionReason?: string }) {
@@ -72,7 +78,10 @@ function RaceCompartment({ race, attentionReason }: { race: Race; attentionReaso
               </div>
             ))}
           </div>
-          <button className="race-drawer-inspect" onClick={() => inspectRace(race)}>INSPECT RACE →</button>
+          <div className="race-drawer-actions">
+            {(race.history?.length ?? 0) > 0 && <button className="race-drawer-watch" onClick={() => watchRace(race)}>WATCH REPLAY ▶</button>}
+            <button className="race-drawer-inspect" onClick={() => inspectRace(race)}>INSPECT RACE →</button>
+          </div>
         </div>
       )}
     </article>
