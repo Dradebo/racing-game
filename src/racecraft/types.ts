@@ -60,7 +60,8 @@ export type Lap = {
   finishCondition: string
   expectedMinutes?: number
   actualMinutes?: number
-  artifacts: Artifact[]
+  artifacts?: Artifact[]
+  evidence?: Artifact[]
   baton?: Baton
 }
 
@@ -135,6 +136,6 @@ export type StrivingSnapshot = {
   doctrine: 'Striving Observation'
   seasons: Season[]
   races: Race[]
-  artifacts: Artifact[]
+  artifacts?: Artifact[]
   recurringTemplates: RaceTemplate[]
 }
