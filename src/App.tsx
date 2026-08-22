@@ -14,6 +14,7 @@ import { ReplayDirector } from './racecraft/ReplayDirector'
 import { TrophyShelf } from './racecraft/TrophyShelf'
 import { RaceRouteProvider } from './racecraft/RaceRouteProvider'
 import { NativeLapCapture } from './racecraft/NativeLapCapture'
+import { RouteDiagnostic } from './racecraft/RouteDiagnostic'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -43,6 +44,7 @@ export function App(): JSX.Element {
         </Canvas>
         <RacecraftHUD />
         <ReplayDirector />
+        <RouteDiagnostic />
       </section>
       <RaceDrawers />
       <TrophyShelf />
