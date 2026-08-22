@@ -12,6 +12,7 @@ import { BoundingBox, Ramp, Track, Vehicle, Goal, Train, Heightmap } from './mod
 import { angularVelocity, levelLayer, position, rotation, useStore } from './store'
 import { Checkpoint, Clock, Speed, Minimap, Intro, Help, Editor, LeaderBoard, Finished, PickColor } from './ui'
 import { useToggle } from './useToggle'
+import { PitWall } from './racecraft/PitWall'
 
 const layers = new Layers()
 layers.enable(levelLayer)
@@ -80,6 +81,7 @@ export function App(): JSX.Element {
       <PickColor />
       <HideMouse />
       <Keyboard />
+      <PitWall />
     </Intro>
   )
 }
