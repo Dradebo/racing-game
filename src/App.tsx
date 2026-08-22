@@ -10,6 +10,7 @@ import { ObservationCamera } from './racecraft/ObservationCamera'
 import { RacecraftHUD } from './racecraft/RacecraftHUD'
 import { RaceDrawers } from './racecraft/RaceDrawers'
 import { RaceScene } from './racecraft/RaceScene'
+import { ReplayDirector } from './racecraft/ReplayDirector'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -33,6 +34,7 @@ export function App(): JSX.Element {
           <Environment files="textures/dikhololo_night_1k.hdr" />
         </Canvas>
         <RacecraftHUD />
+        <ReplayDirector />
       </section>
       <RaceDrawers />
       <PitWall />
