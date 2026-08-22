@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
-import { routePoint } from './raceRoute'
+import { pointOnRoute, tangentOnRoute, useRaceRoute } from './RaceRouteProvider'
 import { subscribeReplayState, type ReplayVisualState } from './replayBridge'
 
 function cameraOffset(state: ReplayVisualState | null): Vector3 {
@@ -16,11 +16,17 @@ function cameraOffset(state: ReplayVisualState | null): Vector3 {
 export function ObservationCamera(): null {
   const { camera } = useThree()
   const [state, setState] = useState<ReplayVisualState | null>(null)
+  const route = useRaceRoute()
 
   useEffect(() => subscribeReplayState(setState), [])
 
-  const target = useMemo(() => state ? routePoint(state.progress) : new Vector3(-62, 2, 8), [state])
-  const desired = useMemo(() => target.clone().add(cameraOffset(state)), [target, state])
+  const target = useMemo(() => state ? pointOnRoute(route, state.progress) : pointOnRoute(route, 48), [route, state])
+  const tangent = useMemo(() => state ? tangentOnRoute(route, state.progress) : tangentOnRoute(route, 48), [route, state])
+  const desired = useMemo(() => {
+    const base = cameraOffset(state)
+    const side = new Vector3(-tangent.z, 0, tangent.x).multiplyScalar(state?.kind === 'wait' || state?.kind === 'rest' ? 18 : 8)
+    return target.clone().add(base).add(side)
+  }, [target, tangent, state])
 
   useFrame(() => {
     camera.position.lerp(desired, 0.055)
