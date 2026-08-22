@@ -4,7 +4,7 @@ import { loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { enforceDisplayBoundary } from './displayBoundary'
-import { publishReplayState } from './replayBridge'
+import { publishReplayState, REPLAY_MODE_EVENT } from './replayBridge'
 
 const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
 const SNAPSHOT_EVENT = 'striving-observation:snapshot'
@@ -17,14 +17,20 @@ function chooseRace(snapshot: StrivingSnapshot) {
 
 export function RacecraftHUD(): JSX.Element | null {
   const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => enforceDisplayBoundary(loadLocalSnapshot() ?? hydratedDemo))
+  const [replayActive, setReplayActive] = useState(false)
 
   useEffect(() => {
-    const handler = (event: Event) => {
+    const snapshotHandler = (event: Event) => {
       const next = (event as CustomEvent<StrivingSnapshot>).detail
       if (next) setSnapshot(enforceDisplayBoundary(next))
     }
-    window.addEventListener(SNAPSHOT_EVENT, handler)
-    return () => window.removeEventListener(SNAPSHOT_EVENT, handler)
+    const replayModeHandler = (event: Event) => setReplayActive(Boolean((event as CustomEvent<boolean>).detail))
+    window.addEventListener(SNAPSHOT_EVENT, snapshotHandler)
+    window.addEventListener(REPLAY_MODE_EVENT, replayModeHandler)
+    return () => {
+      window.removeEventListener(SNAPSHOT_EVENT, snapshotHandler)
+      window.removeEventListener(REPLAY_MODE_EVENT, replayModeHandler)
+    }
   }, [])
 
   const race = useMemo(() => chooseRace(snapshot), [snapshot])
@@ -35,7 +41,7 @@ export function RacecraftHUD(): JSX.Element | null {
   const progress = race?.status === 'finished' ? 100 : laps.length ? Math.round((finished / laps.length) * 100) : 0
 
   useEffect(() => {
-    if (!race) return
+    if (!race || replayActive) return
     const latest = race.history?.[race.history.length - 1]
     publishReplayState({
       raceId: race.id,
@@ -44,9 +50,9 @@ export function RacecraftHUD(): JSX.Element | null {
       kind: latest?.kind ?? (race.status === 'finished' ? 'finish' : race.status === 'parked' ? 'rest' : race.status === 'waiting_external' ? 'wait' : 'progress'),
       status: race.status,
     })
-  }, [race, progress])
+  }, [race, progress, replayActive])
 
-  if (!race) return null
+  if (!race || replayActive) return null
 
   return (
     <div className="racecraft-hud" aria-label="Current race state">
