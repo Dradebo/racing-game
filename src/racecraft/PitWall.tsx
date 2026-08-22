@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Race, StrivingSnapshot } from './types'
 import { clearLocalSnapshot, importSnapshotFile, loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
+import './pitWall.css'
 
 function progress(race: Race): number {
   const laps = race.circuit.laps
