@@ -134,7 +134,7 @@ export function RaceDrawers(): JSX.Element {
         </div>
       </details>
 
-      <details className="race-drawer finished">
+      <details className="race-drawer archive">
         <summary><span>FINISHED</span><b>{finishedCount}</b></summary>
         <div className="race-drawer-body">
           {finishedSeasons.length > 0 && (
