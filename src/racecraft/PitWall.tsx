@@ -63,7 +63,7 @@ function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
   return { ...snapshot, generatedAt: now, races, artifacts: [...(snapshot.artifacts ?? []), artifact] }
 }
 
-export function PitWall(): JSX.Element {
+export function PitWall(): JSX.Element | null {
   const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? hydratedDemo)
   const [selectedRaceId, setSelectedRaceId] = useState(snapshot.races[0]?.id)
   const [replayIndex, setReplayIndex] = useState(0)
@@ -126,8 +126,7 @@ export function PitWall(): JSX.Element {
     }
   }
 
-  if (!open) return <button className="racecraft-launch" onClick={() => setOpen(true)}>RACE INSPECTOR</button>
-  if (!selected) return <></>
+  if (!open || !selected) return null
 
   return (
     <aside className="racecraft-shell racecraft-inspector" aria-label="Race inspector">
