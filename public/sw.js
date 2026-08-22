@@ -1,5 +1,5 @@
-const CACHE = 'striving-observation-v0'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest']
+const CACHE = 'striving-observation-v1'
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/striving-observation-icon.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
@@ -15,15 +15,41 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+function isPrivateRequest(request) {
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return true
+  if (url.pathname.startsWith('/api/')) return true
+  if (request.headers.has('authorization')) return true
+  return false
+}
+
+function isSafeAsset(request) {
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return false
+  return request.destination === 'script' || request.destination === 'style' || request.destination === 'font' || request.destination === 'image'
+}
+
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return
+  const request = event.request
+  if (request.method !== 'GET') return
+  if (isPrivateRequest(request)) return
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html').then((cached) => cached || caches.match('/'))),
+    )
+    return
+  }
+
+  if (!isSafeAsset(request)) return
+
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const copy = response.clone()
-        caches.open(CACHE).then((cache) => cache.put(event.request, copy))
-        return response
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/'))),
+    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+      const cacheControl = response.headers.get('cache-control') || ''
+      if (response.ok && !/private|no-store/i.test(cacheControl)) {
+        caches.open(CACHE).then((cache) => cache.put(request, response.clone()))
+      }
+      return response
+    })),
   )
 })
