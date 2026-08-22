@@ -137,9 +137,13 @@ function attachToRace(race: Race): Race {
 }
 
 export function withArtifactBackfill(snapshot: StrivingSnapshot): StrivingSnapshot {
+  const existingArtifactIds = new Set((snapshot.artifacts ?? []).map((artifact) => artifact.id))
   const base = {
     ...snapshot,
-    artifacts: [...(snapshot.artifacts ?? []), ...artifacts],
+    artifacts: [
+      ...(snapshot.artifacts ?? []),
+      ...artifacts.filter((artifact) => !existingArtifactIds.has(artifact.id)),
+    ],
     races: snapshot.races.map(attachToRace),
   }
   return withRetrievalBackfill(base)
