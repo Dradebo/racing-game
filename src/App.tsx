@@ -13,6 +13,7 @@ import { RaceScene } from './racecraft/RaceScene'
 import { ReplayDirector } from './racecraft/ReplayDirector'
 import { TrophyShelf } from './racecraft/TrophyShelf'
 import { RaceRouteProvider } from './racecraft/RaceRouteProvider'
+import { NativeLapCapture } from './racecraft/NativeLapCapture'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -20,6 +21,9 @@ layers.enable(levelLayer)
 
 export function App(): JSX.Element {
   const [dpr, shadows] = useStore((s) => [s.dpr, s.shadows])
+  const captureLap = new URLSearchParams(window.location.search).get('capture-lap') === '1'
+
+  if (captureLap) return <NativeLapCapture />
 
   return (
     <main className="striving-observation-app">
