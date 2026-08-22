@@ -8,6 +8,7 @@ import { PitWall } from './racecraft/PitWall'
 import { RaceGhost } from './racecraft/RaceGhost'
 import { ObservationCamera } from './racecraft/ObservationCamera'
 import { RacecraftHUD } from './racecraft/RacecraftHUD'
+import { RaceDrawers } from './racecraft/RaceDrawers'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -31,6 +32,7 @@ export function App(): JSX.Element {
         </Canvas>
         <RacecraftHUD />
       </section>
+      <RaceDrawers />
       <PitWall />
     </main>
   )
