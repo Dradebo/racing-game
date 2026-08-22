@@ -1,15 +1,15 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
-import type { CatmullRomCurve3, Group, InstancedMesh } from 'three'
+import type { Group, InstancedMesh } from 'three'
 import { Object3D, Vector3 } from 'three'
 import type { Race } from './types'
 import type { ReplayVisualState } from './replayBridge'
-import { pointOnRoute, tangentOnRoute } from './RaceRouteProvider'
+import { pointOnRoute, tangentOnRoute, type RaceRoute } from './RaceRouteProvider'
 
 const temp = new Object3D()
 
-function frame(route: CatmullRomCurve3, progress: number) {
+function frame(route: RaceRoute, progress: number) {
   const point = pointOnRoute(route, progress)
   const tangent = tangentOnRoute(route, progress)
   const side = new Vector3(-tangent.z, 0, tangent.x).normalize()
@@ -17,7 +17,7 @@ function frame(route: CatmullRomCurve3, progress: number) {
   return { point, tangent, side, yaw }
 }
 
-function TrainBlocker({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
+function TrainBlocker({ route, progress }: { route: RaceRoute; progress: number }) {
   const gltf = useGLTF('/models/track-draco.glb') as any
   const ref = useRef<Group>(null!)
   const f = useMemo(() => frame(route, Math.min(99, progress + 2)), [route, progress])
@@ -47,7 +47,7 @@ function TrainBlocker({ route, progress }: { route: CatmullRomCurve3; progress: 
   )
 }
 
-function MutationRamp({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
+function MutationRamp({ route, progress }: { route: RaceRoute; progress: number }) {
   const f = useMemo(() => frame(route, Math.min(99, progress + 3)), [route, progress])
   return (
     <group position={f.point} rotation={[0, f.yaw, -Math.PI / 18]}>
@@ -59,7 +59,7 @@ function MutationRamp({ route, progress }: { route: CatmullRomCurve3; progress: 
   )
 }
 
-function BoostTrail({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
+function BoostTrail({ route, progress }: { route: RaceRoute; progress: number }) {
   const ref = useRef<InstancedMesh>(null!)
   const count = 18
 
@@ -88,7 +88,7 @@ function BoostTrail({ route, progress }: { route: CatmullRomCurve3; progress: nu
   )
 }
 
-function DustCloud({ route, progress }: { route: CatmullRomCurve3; progress: number }) {
+function DustCloud({ route, progress }: { route: RaceRoute; progress: number }) {
   const ref = useRef<InstancedMesh>(null!)
   const count = 26
 
@@ -116,7 +116,7 @@ function DustCloud({ route, progress }: { route: CatmullRomCurve3; progress: num
   )
 }
 
-function RecoverySkids({ race, route }: { race: Race; route: CatmullRomCurve3 }) {
+function RecoverySkids({ race, route }: { race: Race; route: RaceRoute }) {
   const recoveries = useMemo(() => {
     const events = race.history ?? []
     const marks: number[] = []
@@ -150,7 +150,7 @@ function RecoverySkids({ race, route }: { race: Race; route: CatmullRomCurve3 })
   )
 }
 
-export function RaceGimmicks({ race, visual, route }: { race: Race; visual: ReplayVisualState; route: CatmullRomCurve3 }): JSX.Element {
+export function RaceGimmicks({ race, visual, route }: { race: Race; visual: ReplayVisualState; route: RaceRoute }): JSX.Element {
   const history = race.history ?? []
   const currentIndex = history.findIndex((event) => event.id === visual.eventId)
   const previous = currentIndex > 0 ? history[currentIndex - 1] : undefined
