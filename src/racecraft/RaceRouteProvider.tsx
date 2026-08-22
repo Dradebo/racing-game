@@ -1,7 +1,8 @@
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { CurvePath, LineCurve3, Vector3 } from 'three'
 import { useGLTF } from '@react-three/drei'
 import type { BufferGeometry } from 'three'
+import { CANONICAL_LAP_SAVED_EVENT, canonicalLapToRoute, loadCanonicalLap } from './canonicalLap'
 
 const startAnchor = new Vector3(-27, 1, 180)
 const checkpointAnchor = new Vector3(-50, 1, -5)
@@ -84,12 +85,10 @@ function multiSourceBoundaryDistance(positions: Vector3[], adjacency: number[][]
   const values = new Float64Array(positions.length)
   values.fill(Number.POSITIVE_INFINITY)
   const heap = new MinHeap()
-
   boundary.forEach((index) => {
     values[index] = 0
     heap.push({ index, score: 0 })
   })
-
   while (heap.size) {
     const current = heap.pop()!
     if (current.score !== values[current.index]) continue
@@ -217,7 +216,7 @@ function centerBiasedPath(graph: SurfaceGraph, start: number, goal: number): num
   return path.reverse()
 }
 
-function deriveRoute(geometry?: BufferGeometry): RaceRoute {
+function deriveFallbackRoute(geometry?: BufferGeometry): RaceRoute {
   if (!geometry) return fallbackRoute
   try {
     const graph = buildSurfaceGraph(geometry)
@@ -239,8 +238,22 @@ export function RaceRouteProvider({ children }: { children: React.ReactNode }): 
   const gltf = useGLTF('/models/track-draco.glb') as any
   const stripGeometry = gltf.nodes?.strip?.geometry as BufferGeometry | undefined
   const trackGeometry = gltf.nodes?.track_1?.geometry as BufferGeometry | undefined
-  const route = useMemo(() => deriveRoute(stripGeometry ?? trackGeometry), [stripGeometry, trackGeometry])
-  return <RaceRouteContext.Provider value={route}>{children}</RaceRouteContext.Provider>
+  const inferredRoute = useMemo(() => deriveFallbackRoute(stripGeometry ?? trackGeometry), [stripGeometry, trackGeometry])
+  const [capturedRoute, setCapturedRoute] = useState<RaceRoute | null>(() => {
+    const trace = loadCanonicalLap()
+    return trace ? canonicalLapToRoute(trace) : null
+  })
+
+  useEffect(() => {
+    const handler = () => {
+      const trace = loadCanonicalLap()
+      setCapturedRoute(trace ? canonicalLapToRoute(trace) : null)
+    }
+    window.addEventListener(CANONICAL_LAP_SAVED_EVENT, handler)
+    return () => window.removeEventListener(CANONICAL_LAP_SAVED_EVENT, handler)
+  }, [])
+
+  return <RaceRouteContext.Provider value={capturedRoute ?? inferredRoute}>{children}</RaceRouteContext.Provider>
 }
 
 export function useRaceRoute(): RaceRoute {
