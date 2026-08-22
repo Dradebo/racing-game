@@ -61,6 +61,17 @@ export type Dependency = {
   followUpAfter?: string
 }
 
+export type RaceEvent = {
+  id: string
+  label: string
+  detail?: string
+  kind: 'start' | 'progress' | 'blocker' | 'relay' | 'mutation' | 'verification' | 'finish' | 'wait' | 'rest'
+  at?: string
+  lapId?: string
+  progress: number
+  confidence: Confidence
+}
+
 export type Race = {
   id: string
   name: string
@@ -75,6 +86,7 @@ export type Race = {
   nextLegalLap?: string
   resumeUrl?: string
   confidence: Confidence
+  history?: RaceEvent[]
 }
 
 export type RaceTemplate = {
