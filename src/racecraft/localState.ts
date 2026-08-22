@@ -1,4 +1,5 @@
 import type { StrivingSnapshot } from './types'
+import { enforceDisplayBoundary } from './displayBoundary'
 
 const STORAGE_KEY = 'striving-observation.snapshot.v1'
 const LEGACY_STORAGE_KEY = 'striving-observation.snapshot.v0'
@@ -14,7 +15,7 @@ export function loadLocalSnapshot(): StrivingSnapshot | null {
     const current = window.localStorage.getItem(STORAGE_KEY)
     if (current) {
       const parsed = JSON.parse(current) as unknown
-      return isSnapshot(parsed) ? parsed : null
+      return isSnapshot(parsed) ? enforceDisplayBoundary(parsed) : null
     }
 
     const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY)
@@ -29,7 +30,7 @@ export function loadLocalSnapshot(): StrivingSnapshot | null {
     if (!Array.isArray(parsed.artifacts)) return null
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
-    return parsed
+    return enforceDisplayBoundary(parsed)
   } catch {
     return null
   }
@@ -53,5 +54,5 @@ export async function importSnapshotFile(file: File): Promise<StrivingSnapshot> 
   }
 
   saveLocalSnapshot(parsed)
-  return parsed
+  return enforceDisplayBoundary(parsed)
 }
