@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Race, StrivingSnapshot } from './types'
+import type { Artifact, Race, StrivingSnapshot } from './types'
 import { clearLocalSnapshot, importSnapshotFile, loadLocalSnapshot, saveLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
+import { withArtifactBackfill } from './artifactBackfill'
 import { publishReplayState } from './replayBridge'
 import './pitWall.css'
+
+const hydratedDemo = withArtifactBackfill(demoSnapshot)
 
 function progress(race: Race): number {
   const laps = race.circuit.laps
@@ -23,11 +26,26 @@ function terminalCopy(race: Race): { title: string; detail: string; tone: string
 }
 
 function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
+  const now = new Date().toISOString()
+  const artifact: Artifact = {
+    id: `artifact-pesa-playthrough-${Date.now()}`,
+    kind: 'manual_record',
+    source: 'manual',
+    label: 'Pesa Smart playthrough recorded',
+    observedAt: now,
+    confidence: 'observed',
+    contribution: 'closes_lap',
+    seasonId: 'build',
+    raceId: 'pesa-smart',
+    circuitId: 'closing',
+    lapId: 'playthrough',
+  }
+
   const races = snapshot.races.map((race) => {
     if (race.id !== 'pesa-smart') return race
-    const laps = race.circuit.laps.map((lap, index) => {
-      if (index === 4) return { ...lap, status: 'finished' as const }
-      if (index === 5) return { ...lap, status: 'in_progress' as const }
+    const laps = race.circuit.laps.map((lap) => {
+      if (lap.id === 'playthrough') return { ...lap, status: 'finished' as const, artifacts: [...(lap.artifacts ?? []), artifact] }
+      if (lap.id === 'clear-defects') return { ...lap, status: 'in_progress' as const }
       return lap
     })
     const nextProgress = Math.max(progress({ ...race, circuit: { ...race.circuit, laps } }), 92)
@@ -35,28 +53,30 @@ function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
       ...(race.history ?? []),
       {
         id: `live-${Date.now()}`,
-        label: 'Playthrough evidence captured',
-        detail: 'Observed locally: the playthrough lap closed and defect-clearing became the next legal lap.',
+        label: 'Playthrough lap closed',
+        detail: 'The recorded playthrough closed this lap and opened defect clearing as the next legal lap.',
         kind: 'verification' as const,
         progress: nextProgress,
         confidence: 'observed' as const,
+        artifactIds: [artifact.id],
       },
     ]
     return {
       ...race,
+      artifacts: [...(race.artifacts ?? []), artifact],
       circuit: { ...race.circuit, laps },
       currentLapId: 'clear-defects',
       nextLegalLap: 'Clear closing defects',
-      lastMeaningfulEvent: new Date().toISOString(),
+      lastMeaningfulEvent: now,
       history,
       confidence: 'observed' as const,
     }
   })
-  return { ...snapshot, generatedAt: new Date().toISOString(), races }
+  return { ...snapshot, generatedAt: now, races, artifacts: [...(snapshot.artifacts ?? []), artifact] }
 }
 
 export function PitWall(): JSX.Element {
-  const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? demoSnapshot)
+  const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? hydratedDemo)
   const [selectedRaceId, setSelectedRaceId] = useState(snapshot.races[0]?.id)
   const [replayIndex, setReplayIndex] = useState(0)
   const [mode, setMode] = useState<'current' | 'replay'>('current')
@@ -85,6 +105,10 @@ export function PitWall(): JSX.Element {
   const activeCount = snapshot.races.filter((race) => race.status === 'racing' || race.status === 'waiting_me').length
   const waitingCount = snapshot.races.filter((race) => race.status === 'waiting_external').length
   const podiumCount = snapshot.races.filter((race) => race.status === 'finished').length
+  const replayArtifacts = useMemo(() => {
+    if (!replayEvent?.artifactIds?.length) return []
+    return (snapshot.artifacts ?? []).filter((artifact) => replayEvent.artifactIds?.includes(artifact.id))
+  }, [snapshot, replayEvent])
 
   useEffect(() => {
     if (!selected) return
@@ -137,7 +161,7 @@ export function PitWall(): JSX.Element {
 
       <div className="racecraft-actions">
         <label>LOAD PRIVATE STATE<input type="file" accept="application/json,.json" onChange={(event) => onImport(event.target.files?.[0])} /></label>
-        <button onClick={() => { clearLocalSnapshot(); setSnapshot(demoSnapshot); selectRace(demoSnapshot.races[0]) }}>RESET DEMO</button>
+        <button onClick={() => { clearLocalSnapshot(); setSnapshot(hydratedDemo); selectRace(hydratedDemo.races[0]) }}>RESET DEMO</button>
         <button className="racecraft-primary" onClick={() => {
           const next = advancePesaSmart(snapshot)
           saveLocalSnapshot(next)
@@ -201,7 +225,19 @@ export function PitWall(): JSX.Element {
                     </div>
                   </>
                 )}
-                <div className="racecraft-replay-event"><strong>{replayEvent?.label}</strong><small>{replayEvent?.kind.replace('_', ' ')} · {replayEvent?.confidence}</small>{replayEvent?.detail && <p>{replayEvent.detail}</p>}</div>
+                <div className="racecraft-replay-event">
+                  <strong>{replayEvent?.label}</strong>
+                  <small>{replayEvent?.kind.replace('_', ' ')} · {replayEvent?.confidence}</small>
+                  {replayEvent?.detail && <p>{replayEvent.detail}</p>}
+                  {replayArtifacts.length > 0 && (
+                    <div className="racecraft-artifacts">
+                      <span>ARTIFACTS THAT CHANGED THIS STATE</span>
+                      {replayArtifacts.map((artifact) => (
+                        artifact.uri ? <a key={artifact.id} href={artifact.uri} target="_blank" rel="noreferrer"><b>{artifact.kind}</b>{artifact.label}<small>{artifact.contribution.replaceAll('_', ' ')}</small></a> : <div key={artifact.id}><b>{artifact.kind}</b>{artifact.label}<small>{artifact.contribution.replaceAll('_', ' ')}</small></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {replayAtEnd && terminal && (
                   <div className={`racecraft-terminal ${terminal.tone}`}>
@@ -217,7 +253,7 @@ export function PitWall(): JSX.Element {
               <div className="racecraft-laps">
                 {selected.circuit.laps.map((lap, index) => (
                   <div key={lap.id} className={`racecraft-lap ${lap.status}`}>
-                    <span>{String(index + 1).padStart(2, '0')}</span><div><strong>{lap.name}</strong><small>{lap.status.replace('_', ' ')}</small></div>
+                    <span>{String(index + 1).padStart(2, '0')}</span><div><strong>{lap.name}</strong><small>{lap.status.replace('_', ' ')}</small>{(lap.artifacts?.length ?? 0) > 0 && <small>{lap.artifacts?.length} artifact{lap.artifacts?.length === 1 ? '' : 's'}</small>}</div>
                   </div>
                 ))}
               </div>
@@ -226,7 +262,7 @@ export function PitWall(): JSX.Element {
         )}
       </div>
 
-      <footer className="racecraft-privacy">PRIVATE STATE STAYS LOCAL · PUBLIC RENDERER · RACE STATE COMES FROM EVIDENCE</footer>
+      <footer className="racecraft-privacy">PRIVATE STATE STAYS LOCAL · PUBLIC RENDERER · RACE STATE COMES FROM ARTIFACTS</footer>
     </aside>
   )
 }
