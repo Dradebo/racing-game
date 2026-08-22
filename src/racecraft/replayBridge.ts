@@ -13,6 +13,7 @@ export type ReplayVisualState = {
 
 const EVENT_NAME = 'striving-observation:replay'
 export const WATCH_REPLAY_EVENT = 'striving-observation:watch-replay'
+export const REPLAY_MODE_EVENT = 'striving-observation:replay-mode'
 
 export function publishReplayState(state: ReplayVisualState): void {
   window.dispatchEvent(new CustomEvent<ReplayVisualState>(EVENT_NAME, { detail: state }))
@@ -26,4 +27,8 @@ export function subscribeReplayState(listener: (state: ReplayVisualState) => voi
 
 export function requestWatchReplay(raceId: string): void {
   window.dispatchEvent(new CustomEvent(WATCH_REPLAY_EVENT, { detail: { raceId } }))
+}
+
+export function publishReplayMode(active: boolean): void {
+  window.dispatchEvent(new CustomEvent<boolean>(REPLAY_MODE_EVENT, { detail: active }))
 }
