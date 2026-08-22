@@ -14,12 +14,12 @@ function progress(race: Race): number {
 }
 
 function terminalCopy(race: Race): { title: string; detail: string; tone: string } {
-  if (race.status === 'finished') return { title: 'PODIUM', detail: 'Verified finish. Proof banked. Capability remains in the garage.', tone: 'podium' }
-  if (race.status === 'waiting_external') return { title: 'PIT HOLD', detail: 'No movement expected until an external dependency returns.', tone: 'waiting' }
-  if (race.status === 'stale') return { title: 'NO SIGNAL', detail: 'The race stopped reporting. This is a custody problem, not a moral verdict.', tone: 'stale' }
-  if (race.status === 'parked') return { title: 'GARAGE DAY', detail: 'Progress intentionally paused. No anomaly generated.', tone: 'rest' }
-  if (race.status === 'waiting_me') return { title: 'YOUR BATON', detail: 'The race is intact and waiting for your next legal move.', tone: 'waiting' }
-  return { title: 'LIVE RACE', detail: 'Striving is still in motion.', tone: 'live' }
+  if (race.status === 'finished') return { title: 'PODIUM', detail: 'Finish verified. Race complete.', tone: 'podium' }
+  if (race.status === 'waiting_external') return { title: 'PIT HOLD', detail: 'No movement expected until the external dependency changes.', tone: 'waiting' }
+  if (race.status === 'stale') return { title: 'NO SIGNAL', detail: 'The race is no longer reporting meaningful state.', tone: 'stale' }
+  if (race.status === 'parked') return { title: 'PARKED', detail: 'Progress intentionally paused. No movement expected.', tone: 'rest' }
+  if (race.status === 'waiting_me') return { title: 'YOUR BATON', detail: 'The race is intact and waiting for the next legal lap.', tone: 'waiting' }
+  return { title: 'LIVE RACE', detail: 'The race is still in motion.', tone: 'live' }
 }
 
 function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
@@ -36,7 +36,7 @@ function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
       {
         id: `live-${Date.now()}`,
         label: 'Playthrough evidence captured',
-        detail: 'Observed locally: playthrough lap closed and defect-clearing became the next legal lap.',
+        detail: 'Observed locally: the playthrough lap closed and defect-clearing became the next legal lap.',
         kind: 'verification' as const,
         progress: nextProgress,
         confidence: 'observed' as const,
@@ -126,7 +126,7 @@ export function PitWall(): JSX.Element {
         <div>
           <span className="racecraft-kicker">STRIVING OBSERVATION</span>
           <h1>Championship</h1>
-          <p className="racecraft-subtitle">Current state first. Replay when you want the archaeology.</p>
+          <p className="racecraft-subtitle">Current state first. Replay when you want the race history.</p>
         </div>
         <button onClick={() => setOpen(false)} aria-label="Close pit wall">×</button>
       </header>
@@ -174,7 +174,7 @@ export function PitWall(): JSX.Element {
             <div className="racecraft-current">
               <span>CURRENT LAP</span>
               <strong>{selected.circuit.laps.find((lap) => lap.id === selected.currentLapId)?.name ?? 'Race complete'}</strong>
-              <small>{selected.nextLegalLap ? `Next legal move: ${selected.nextLegalLap}` : 'No further lap declared.'}</small>
+              <small>{selected.nextLegalLap ? `Next legal lap: ${selected.nextLegalLap}` : 'No further lap declared.'}</small>
             </div>
 
             <p className="racecraft-finish"><b>FINISH LINE</b><br />{selected.finishLine}</p>
@@ -186,7 +186,7 @@ export function PitWall(): JSX.Element {
 
             {history.length > 0 && (
               <div className="racecraft-replay">
-                <div className="racecraft-replay-head"><span>{mode === 'current' ? 'CURRENT OBSERVATION' : 'RACE REPLAY'}</span><b>{replayEvent?.progress ?? 0}%</b></div>
+                <div className="racecraft-replay-head"><span>{mode === 'current' ? 'CURRENT STATE' : 'RACE REPLAY'}</span><b>{replayEvent?.progress ?? 0}%</b></div>
                 <div className="racecraft-replay-track">
                   <i style={{ left: `${replayEvent?.progress ?? 0}%` }} />
                   {history.map((event) => <span key={event.id} title={event.label} style={{ left: `${event.progress}%` }} />)}
@@ -226,7 +226,7 @@ export function PitWall(): JSX.Element {
         )}
       </div>
 
-      <footer className="racecraft-privacy">PRIVATE STATE STAYS LOCAL · PUBLIC RENDERER · REALITY REMAINS AUTHORITATIVE</footer>
+      <footer className="racecraft-privacy">PRIVATE STATE STAYS LOCAL · PUBLIC RENDERER · RACE STATE COMES FROM EVIDENCE</footer>
     </aside>
   )
 }
