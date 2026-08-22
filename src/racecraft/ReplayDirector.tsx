@@ -70,6 +70,7 @@ export function ReplayDirector(): JSX.Element | null {
       progress: event.progress,
       kind: event.kind,
       status: finalStatus(race, event.kind),
+      eventId: event.id,
       eventLabel: event.label,
       eventDetail: event.detail,
       eventIndex,
