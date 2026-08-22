@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { subscribeReplayState, type ReplayVisualState } from './replayBridge'
-import { raceRoute, routePoint } from './raceRoute'
+import { pointOnRoute, tangentOnRoute, useRaceRoute } from './RaceRouteProvider'
 
 function yOffset(kind: string): number {
   if (kind === 'blocker') return 0.05
@@ -20,18 +20,18 @@ function scaleFor(kind: string): number {
 export function RaceGhost(): JSX.Element | null {
   const [state, setState] = useState<ReplayVisualState | null>(null)
   const gltf = useGLTF('/models/chassis-draco.glb') as any
+  const route = useRaceRoute()
 
   useEffect(() => subscribeReplayState(setState), [])
 
   const transform = useMemo(() => {
     if (!state) return null
-    const t = Math.min(Math.max(state.progress / 100, 0), 1)
-    const point = routePoint(state.progress)
+    const point = pointOnRoute(route, state.progress)
     point.y += yOffset(state.kind)
-    const tangent = raceRoute.getTangentAt(t)
+    const tangent = tangentOnRoute(route, state.progress)
     const yaw = Math.atan2(tangent.x, tangent.z)
     return { point, yaw }
-  }, [state])
+  }, [state, route])
 
   if (!state || !transform) return null
 
