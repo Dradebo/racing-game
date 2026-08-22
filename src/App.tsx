@@ -11,6 +11,7 @@ import { RacecraftHUD } from './racecraft/RacecraftHUD'
 import { RaceDrawers } from './racecraft/RaceDrawers'
 import { RaceScene } from './racecraft/RaceScene'
 import { ReplayDirector } from './racecraft/ReplayDirector'
+import { TrophyShelf } from './racecraft/TrophyShelf'
 import './racecraft/appShell.css'
 
 const layers = new Layers()
@@ -37,6 +38,7 @@ export function App(): JSX.Element {
         <ReplayDirector />
       </section>
       <RaceDrawers />
+      <TrophyShelf />
       <PitWall />
     </main>
   )
