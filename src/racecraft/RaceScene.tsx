@@ -7,6 +7,7 @@ import { withArtifactBackfill } from './artifactBackfill'
 import { enforceDisplayBoundary } from './displayBoundary'
 import { pointOnRoute, tangentOnRoute, useRaceRoute } from './RaceRouteProvider'
 import { subscribeReplayState, type ReplayVisualState } from './replayBridge'
+import { RaceGimmicks } from './RaceGimmicks'
 
 const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
 const SNAPSHOT_EVENT = 'striving-observation:snapshot'
@@ -45,14 +46,14 @@ function Gate({ event, active }: { event: RaceEvent; active: boolean }) {
   )
 }
 
-function ConditionProps({ state }: { state: ReplayVisualState }) {
+function ConditionProps({ state, externalBlocker }: { state: ReplayVisualState; externalBlocker: boolean }) {
   const route = useRaceRoute()
   const { point, tangent, side, yaw } = routeFrame(route, state.progress)
   const isBlocked = state.kind === 'blocker'
   const isWaiting = state.kind === 'wait' || state.kind === 'rest'
   const isFinish = state.kind === 'finish'
 
-  if (isBlocked) {
+  if (isBlocked && !externalBlocker) {
     const barrierPoint = point.clone().add(tangent.clone().multiplyScalar(5))
     return (
       <group position={barrierPoint} rotation={[0, yaw, 0]}>
@@ -105,14 +106,17 @@ export function RaceScene(): JSX.Element | null {
   if (!visual || !race) return null
 
   const events = race.history ?? []
+  const externalBlocker = visual.kind === 'blocker' && race.dependencies.some((dependency) => dependency.type === 'waiting_on')
+
   return (
     <group>
       <mesh>
         <tubeGeometry args={[route, 128, 0.055, 6, false]} />
         <meshStandardMaterial transparent opacity={0.22} emissiveIntensity={0.25} />
       </mesh>
-      {events.map((event) => <Gate key={event.id} event={event} active={Math.abs(event.progress - visual.progress) < 0.5} />)}
-      <ConditionProps state={visual} />
+      {events.map((event) => <Gate key={event.id} event={event} active={event.id === visual.eventId} />)}
+      <ConditionProps state={visual} externalBlocker={externalBlocker} />
+      <RaceGimmicks race={race} visual={visual} route={route} />
     </group>
   )
 }
