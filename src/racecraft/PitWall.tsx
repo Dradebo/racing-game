@@ -5,8 +5,15 @@ import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { publishReplayState } from './replayBridge'
 import './pitWall.css'
+import './inspector.css'
 
 const hydratedDemo = withArtifactBackfill(demoSnapshot)
+const SNAPSHOT_EVENT = 'striving-observation:snapshot'
+const INSPECT_EVENT = 'striving-observation:inspect-race'
+
+function broadcastSnapshot(snapshot: StrivingSnapshot) {
+  window.dispatchEvent(new CustomEvent(SNAPSHOT_EVENT, { detail: snapshot }))
+}
 
 function progress(race: Race): number {
   const laps = race.circuit.laps
@@ -33,16 +40,8 @@ function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
   const now = new Date().toISOString()
   const artifact: Artifact = {
     id: `artifact-pesa-playthrough-${Date.now()}`,
-    kind: 'manual_record',
-    source: 'manual',
-    label: 'Pesa Smart playthrough recorded',
-    observedAt: now,
-    confidence: 'observed',
-    contribution: 'closes_lap',
-    seasonId: 'build',
-    raceId: 'pesa-smart',
-    circuitId: 'closing',
-    lapId: 'playthrough',
+    kind: 'manual_record', source: 'manual', label: 'Pesa Smart playthrough recorded', observedAt: now,
+    confidence: 'observed', contribution: 'closes_lap', seasonId: 'build', raceId: 'pesa-smart', circuitId: 'closing', lapId: 'playthrough',
   }
 
   const races = snapshot.races.map((race) => {
@@ -53,26 +52,11 @@ function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
       return lap
     })
     const nextProgress = Math.max(progress({ ...race, circuit: { ...race.circuit, laps } }), 92)
-    const history = [
-      ...(race.history ?? []),
-      {
-        id: `live-${Date.now()}`,
-        label: 'Playthrough lap closed',
-        detail: 'The recorded playthrough closed this lap and opened defect clearing as the next legal lap.',
-        kind: 'verification' as const,
-        progress: nextProgress,
-        confidence: 'observed' as const,
-        artifactIds: [artifact.id],
-      },
-    ]
     return {
       ...race,
       artifacts: [...(race.artifacts ?? []), artifact],
-      circuit: { ...race.circuit, laps },
-      currentLapId: 'clear-defects',
-      nextLegalLap: 'Clear closing defects',
-      lastMeaningfulEvent: now,
-      history,
+      circuit: { ...race.circuit, laps }, currentLapId: 'clear-defects', nextLegalLap: 'Clear closing defects', lastMeaningfulEvent: now,
+      history: [...(race.history ?? []), { id: `live-${Date.now()}`, label: 'Playthrough lap closed', detail: 'The recorded playthrough closed this lap and opened defect clearing as the next legal lap.', kind: 'verification' as const, progress: nextProgress, confidence: 'observed' as const, artifactIds: [artifact.id] }],
       confidence: 'observed' as const,
     }
   })
@@ -84,58 +68,54 @@ export function PitWall(): JSX.Element {
   const [selectedRaceId, setSelectedRaceId] = useState(snapshot.races[0]?.id)
   const [replayIndex, setReplayIndex] = useState(0)
   const [mode, setMode] = useState<'current' | 'replay'>('current')
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const selected = useMemo(
-    () => snapshot.races.find((race) => race.id === selectedRaceId) ?? snapshot.races[0],
-    [snapshot, selectedRaceId],
-  )
-
-  const grouped = useMemo(
-    () => snapshot.seasons.map((season) => ({
-      ...season,
-      races: season.raceIds.map((id) => snapshot.races.find((race) => race.id === id)).filter(Boolean) as Race[],
-      artifactCount: (snapshot.artifacts ?? []).filter((artifact) => artifact.seasonId === season.id).length,
-    })),
-    [snapshot],
-  )
-
+  const selected = useMemo(() => snapshot.races.find((race) => race.id === selectedRaceId) ?? snapshot.races[0], [snapshot, selectedRaceId])
   const history = selected?.history ?? []
   const currentIndex = Math.max(history.length - 1, 0)
   const effectiveIndex = mode === 'current' ? currentIndex : Math.min(replayIndex, currentIndex)
   const replayEvent = history[effectiveIndex]
   const replayAtEnd = history.length > 0 && effectiveIndex === currentIndex
   const terminal = selected ? terminalCopy(selected) : null
-  const activeCount = snapshot.races.filter((race) => race.status === 'racing' || race.status === 'waiting_me').length
-  const waitingCount = snapshot.races.filter((race) => race.status === 'waiting_external').length
-  const podiumCount = snapshot.races.filter((race) => race.status === 'finished').length
-  const selectedArtifacts = useMemo(
-    () => (snapshot.artifacts ?? []).filter((artifact) => artifact.raceId === selected?.id),
-    [snapshot, selected],
-  )
-  const replayArtifacts = useMemo(() => {
-    if (!replayEvent?.artifactIds?.length) return []
-    return (snapshot.artifacts ?? []).filter((artifact) => replayEvent.artifactIds?.includes(artifact.id))
-  }, [snapshot, replayEvent])
+  const selectedArtifacts = useMemo(() => (snapshot.artifacts ?? []).filter((artifact) => artifact.raceId === selected?.id), [snapshot, selected])
+  const replayArtifacts = useMemo(() => !replayEvent?.artifactIds?.length ? [] : (snapshot.artifacts ?? []).filter((artifact) => replayEvent.artifactIds?.includes(artifact.id)), [snapshot, replayEvent])
   const pesaPlaythroughClosed = snapshot.races.find((race) => race.id === 'pesa-smart')?.circuit.laps.find((lap) => lap.id === 'playthrough')?.status === 'finished'
 
   useEffect(() => {
-    if (!selected) return
-    publishReplayState({
-      raceId: selected.id,
-      raceName: selected.name,
-      progress: replayEvent?.progress ?? progress(selected),
-      kind: replayEvent?.kind ?? 'progress',
-      status: selected.status,
-    })
-  }, [selected, replayEvent])
+    const snapshotHandler = (event: Event) => {
+      const next = (event as CustomEvent<StrivingSnapshot>).detail
+      if (next) setSnapshot(next)
+    }
+    const inspectHandler = (event: Event) => {
+      const raceId = (event as CustomEvent<{ raceId?: string }>).detail?.raceId
+      if (!raceId) return
+      const race = snapshot.races.find((item) => item.id === raceId)
+      if (!race) return
+      setSelectedRaceId(race.id)
+      setReplayIndex(Math.max((race.history?.length ?? 1) - 1, 0))
+      setMode('current')
+      setOpen(true)
+    }
+    window.addEventListener(SNAPSHOT_EVENT, snapshotHandler)
+    window.addEventListener(INSPECT_EVENT, inspectHandler)
+    return () => {
+      window.removeEventListener(SNAPSHOT_EVENT, snapshotHandler)
+      window.removeEventListener(INSPECT_EVENT, inspectHandler)
+    }
+  }, [snapshot])
+
+  useEffect(() => {
+    if (!selected || !open) return
+    publishReplayState({ raceId: selected.id, raceName: selected.name, progress: replayEvent?.progress ?? progress(selected), kind: replayEvent?.kind ?? 'progress', status: selected.status })
+  }, [selected, replayEvent, open])
 
   async function onImport(file?: File) {
     if (!file) return
     try {
       const next = await importSnapshotFile(file)
       setSnapshot(next)
+      broadcastSnapshot(next)
       const first = next.races[0]
       setSelectedRaceId(first?.id)
       setReplayIndex(Math.max((first?.history?.length ?? 1) - 1, 0))
@@ -146,136 +126,62 @@ export function PitWall(): JSX.Element {
     }
   }
 
-  function selectRace(race: Race) {
-    setSelectedRaceId(race.id)
-    setReplayIndex(Math.max((race.history?.length ?? 1) - 1, 0))
-    setMode('current')
-  }
-
-  if (!open) return <button className="racecraft-launch" onClick={() => setOpen(true)}>PIT WALL</button>
+  if (!open) return <button className="racecraft-launch" onClick={() => setOpen(true)}>RACE INSPECTOR</button>
+  if (!selected) return <></>
 
   return (
-    <aside className="racecraft-shell" aria-label="Striving Observation pit wall">
+    <aside className="racecraft-shell racecraft-inspector" aria-label="Race inspector">
       <header className="racecraft-header">
-        <div>
-          <span className="racecraft-kicker">STRIVING OBSERVATION</span>
-          <h1>Championship</h1>
-          <p className="racecraft-subtitle">Current state first. Replay when you want the race history.</p>
-        </div>
-        <button onClick={() => setOpen(false)} aria-label="Close pit wall">×</button>
+        <div><span className="racecraft-kicker">RACE INSPECTOR</span><h1>{selected.name}</h1><p className="racecraft-subtitle">Current state, replay, artifacts and lap detail.</p></div>
+        <button onClick={() => setOpen(false)} aria-label="Close race inspector">×</button>
       </header>
-
-      <div className="racecraft-scoreboard">
-        <span><b>{activeCount}</b> live</span><span><b>{waitingCount}</b> pit hold</span><span><b>{podiumCount}</b> podiums</span><span><b>{snapshot.artifacts?.length ?? 0}</b> artifacts</span>
-      </div>
 
       <div className="racecraft-actions">
         <label>LOAD PRIVATE STATE<input type="file" accept="application/json,.json" onChange={(event) => onImport(event.target.files?.[0])} /></label>
-        <button onClick={() => { clearLocalSnapshot(); setSnapshot(hydratedDemo); selectRace(hydratedDemo.races[0]) }}>RESET DEMO</button>
-        <button className="racecraft-primary" disabled={pesaPlaythroughClosed} onClick={() => {
+        <button onClick={() => { clearLocalSnapshot(); setSnapshot(hydratedDemo); broadcastSnapshot(hydratedDemo) }}>RESET DEMO</button>
+        {selected.id === 'pesa-smart' && <button className="racecraft-primary" disabled={pesaPlaythroughClosed} onClick={() => {
           const next = advancePesaSmart(snapshot)
           if (next === snapshot) return
-          saveLocalSnapshot(next)
-          setSnapshot(next)
-          const race = next.races.find((item) => item.id === 'pesa-smart')!
-          selectRace(race)
-        }}>{pesaPlaythroughClosed ? 'PESA PLAYTHROUGH RECORDED' : 'LOG PESA PLAYTHROUGH'}</button>
+          saveLocalSnapshot(next); setSnapshot(next); broadcastSnapshot(next)
+        }}>{pesaPlaythroughClosed ? 'PESA PLAYTHROUGH RECORDED' : 'LOG PESA PLAYTHROUGH'}</button>}
       </div>
       {error && <p className="racecraft-error">{error}</p>}
 
-      <div className="racecraft-grid">
-        <nav className="racecraft-races" aria-label="Championship races">
-          {grouped.map((season) => (
-            <section className="racecraft-season" key={season.id}>
-              <div className="racecraft-season-head"><strong>{season.name}</strong><span>{season.theme} · {season.artifactCount} artifacts</span></div>
-              {season.races.map((race) => {
-                const raceArtifacts = (snapshot.artifacts ?? []).filter((artifact) => artifact.raceId === race.id).length
-                return (
-                  <button key={race.id} className={`racecraft-race ${selected?.id === race.id ? 'selected' : ''}`} onClick={() => selectRace(race)}>
-                    <span className="racecraft-race-topline"><strong>{race.name}</strong><em>{race.status.replace('_', ' ')}</em></span>
-                    <span className="racecraft-track"><i style={{ width: `${progress(race)}%` }} /></span>
-                    <span className="racecraft-race-meta">{race.circuit.name} · {progress(race)}% · {raceArtifacts} artifacts</span>
-                  </button>
-                )
-              })}
-            </section>
-          ))}
-        </nav>
+      <section className="racecraft-detail racecraft-inspector-detail">
+        <div className="racecraft-detail-head">
+          <div><span className="racecraft-kicker">{selected.circuit.kind.toUpperCase()} CIRCUIT</span><h2>{selected.name}</h2></div>
+          <span className={`racecraft-status ${selected.status}`}>{selected.status.replace('_', ' ')}</span>
+        </div>
 
-        {selected && (
-          <section className="racecraft-detail">
-            <div className="racecraft-detail-head">
-              <div><span className="racecraft-kicker">{selected.circuit.kind.toUpperCase()} CIRCUIT</span><h2>{selected.name}</h2></div>
-              <span className={`racecraft-status ${selected.status}`}>{selected.status.replace('_', ' ')}</span>
-            </div>
+        <div className="racecraft-current">
+          <span>CURRENT LAP</span>
+          <strong>{selected.circuit.laps.find((lap) => lap.id === selected.currentLapId)?.name ?? 'Race complete'}</strong>
+          <small>{selected.nextLegalLap ? `Next legal lap: ${selected.nextLegalLap}` : 'No further lap declared.'}</small>
+          <small>{selectedArtifacts.length} artifact{selectedArtifacts.length === 1 ? '' : 's'} mapped to this race</small>
+        </div>
 
-            <div className="racecraft-current">
-              <span>CURRENT LAP</span>
-              <strong>{selected.circuit.laps.find((lap) => lap.id === selected.currentLapId)?.name ?? 'Race complete'}</strong>
-              <small>{selected.nextLegalLap ? `Next legal lap: ${selected.nextLegalLap}` : 'No further lap declared.'}</small>
-              <small>{selectedArtifacts.length} artifact{selectedArtifacts.length === 1 ? '' : 's'} currently mapped to this race</small>
-            </div>
+        <p className="racecraft-finish"><b>FINISH LINE</b><br />{selected.finishLine}</p>
 
-            <p className="racecraft-finish"><b>FINISH LINE</b><br />{selected.finishLine}</p>
+        <div className="racecraft-mode-switch">
+          <button className={mode === 'current' ? 'active' : ''} onClick={() => setMode('current')}>CURRENT</button>
+          <button className={mode === 'replay' ? 'active' : ''} onClick={() => { setMode('replay'); setReplayIndex(0) }}>REPLAY</button>
+        </div>
 
-            <div className="racecraft-mode-switch">
-              <button className={mode === 'current' ? 'active' : ''} onClick={() => setMode('current')}>CURRENT</button>
-              <button className={mode === 'replay' ? 'active' : ''} onClick={() => { setMode('replay'); setReplayIndex(0) }}>REPLAY</button>
-            </div>
+        {history.length > 0 && <div className="racecraft-replay">
+          <div className="racecraft-replay-head"><span>{mode === 'current' ? 'CURRENT STATE' : 'RACE REPLAY'}</span><b>{replayEvent?.progress ?? 0}%</b></div>
+          <div className="racecraft-replay-track"><i style={{ left: `${replayEvent?.progress ?? 0}%` }} />{history.map((event) => <span key={event.id} title={event.label} style={{ left: `${event.progress}%` }} />)}</div>
+          {mode === 'replay' && <><input type="range" min={0} max={currentIndex} value={Math.min(replayIndex, currentIndex)} onChange={(event) => setReplayIndex(Number(event.target.value))} /><div className="racecraft-replay-nav"><button disabled={replayIndex <= 0} onClick={() => setReplayIndex((value) => Math.max(value - 1, 0))}>← PREV</button><span>{effectiveIndex + 1} / {history.length}</span><button disabled={replayIndex >= currentIndex} onClick={() => setReplayIndex((value) => Math.min(value + 1, currentIndex))}>NEXT →</button></div></>}
+          <div className="racecraft-replay-event"><strong>{replayEvent?.label}</strong><small>{replayEvent?.kind.replace('_', ' ')} · {replayEvent?.confidence}</small>{replayEvent?.detail && <p>{replayEvent.detail}</p>}
+            {replayArtifacts.length > 0 && <div className="racecraft-artifacts"><span>ARTIFACTS THAT CHANGED THIS STATE</span>{replayArtifacts.map((artifact) => artifact.uri ? <a key={artifact.id} href={artifact.uri} target="_blank" rel="noreferrer"><b>{artifact.kind}</b>{artifact.label}<small>{artifact.contribution.replaceAll('_', ' ')}</small></a> : <div key={artifact.id}><b>{artifact.kind}</b>{artifact.label}<small>{artifact.contribution.replaceAll('_', ' ')}</small></div>)}</div>}
+          </div>
+          {replayAtEnd && terminal && <div className={`racecraft-terminal ${terminal.tone}`}><span>{terminal.title}</span><strong>{selected.name}</strong><p>{terminal.detail}</p>{selected.status === 'finished' && <div className="racecraft-podium"><i>2</i><b>1</b><i>3</i></div>}</div>}
+        </div>}
 
-            {history.length > 0 && (
-              <div className="racecraft-replay">
-                <div className="racecraft-replay-head"><span>{mode === 'current' ? 'CURRENT STATE' : 'RACE REPLAY'}</span><b>{replayEvent?.progress ?? 0}%</b></div>
-                <div className="racecraft-replay-track">
-                  <i style={{ left: `${replayEvent?.progress ?? 0}%` }} />
-                  {history.map((event) => <span key={event.id} title={event.label} style={{ left: `${event.progress}%` }} />)}
-                </div>
-                {mode === 'replay' && (
-                  <>
-                    <input type="range" min={0} max={currentIndex} value={Math.min(replayIndex, currentIndex)} onChange={(event) => setReplayIndex(Number(event.target.value))} />
-                    <div className="racecraft-replay-nav">
-                      <button disabled={replayIndex <= 0} onClick={() => setReplayIndex((value) => Math.max(value - 1, 0))}>← PREV</button>
-                      <span>{effectiveIndex + 1} / {history.length}</span>
-                      <button disabled={replayIndex >= currentIndex} onClick={() => setReplayIndex((value) => Math.min(value + 1, currentIndex))}>NEXT →</button>
-                    </div>
-                  </>
-                )}
-                <div className="racecraft-replay-event">
-                  <strong>{replayEvent?.label}</strong>
-                  <small>{replayEvent?.kind.replace('_', ' ')} · {replayEvent?.confidence}</small>
-                  {replayEvent?.detail && <p>{replayEvent.detail}</p>}
-                  {replayArtifacts.length > 0 && (
-                    <div className="racecraft-artifacts">
-                      <span>ARTIFACTS THAT CHANGED THIS STATE</span>
-                      {replayArtifacts.map((artifact) => (
-                        artifact.uri ? <a key={artifact.id} href={artifact.uri} target="_blank" rel="noreferrer"><b>{artifact.kind}</b>{artifact.label}<small>{artifact.contribution.replaceAll('_', ' ')}</small></a> : <div key={artifact.id}><b>{artifact.kind}</b>{artifact.label}<small>{artifact.contribution.replaceAll('_', ' ')}</small></div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {replayAtEnd && terminal && (
-                  <div className={`racecraft-terminal ${terminal.tone}`}>
-                    <span>{terminal.title}</span><strong>{selected.name}</strong><p>{terminal.detail}</p>
-                    {selected.status === 'finished' && <div className="racecraft-podium"><i>2</i><b>1</b><i>3</i></div>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <details className="racecraft-lap-drawer">
-              <summary>VIEW ALL LAPS · {selected.circuit.laps.filter((lap) => lap.status === 'finished').length}/{selected.circuit.laps.length} CLOSED</summary>
-              <div className="racecraft-laps">
-                {selected.circuit.laps.map((lap, index) => (
-                  <div key={lap.id} className={`racecraft-lap ${lap.status}`}>
-                    <span>{String(index + 1).padStart(2, '0')}</span><div><strong>{lap.name}</strong><small>{lap.status.replace('_', ' ')}</small>{(lap.artifacts?.length ?? 0) > 0 && <small>{lap.artifacts?.length} artifact{lap.artifacts?.length === 1 ? '' : 's'}</small>}</div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </section>
-        )}
-      </div>
+        <details className="racecraft-lap-drawer" open>
+          <summary>ALL LAPS · {selected.circuit.laps.filter((lap) => lap.status === 'finished').length}/{selected.circuit.laps.length} CLOSED</summary>
+          <div className="racecraft-laps">{selected.circuit.laps.map((lap, index) => <div key={lap.id} className={`racecraft-lap ${lap.status}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{lap.name}</strong><small>{lap.status.replace('_', ' ')}</small>{(lap.artifacts?.length ?? 0) > 0 && <small>{lap.artifacts?.length} artifact{lap.artifacts?.length === 1 ? '' : 's'}</small>}</div></div>)}</div>
+        </details>
+      </section>
 
       <footer className="racecraft-privacy">PRIVATE STATE STAYS LOCAL · PUBLIC RENDERER · RACE STATE COMES FROM ARTIFACTS</footer>
     </aside>
