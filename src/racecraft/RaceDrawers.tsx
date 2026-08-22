@@ -9,6 +9,14 @@ import './drawers.css'
 const hydratedDemo = withArtifactBackfill(demoSnapshot)
 const SNAPSHOT_EVENT = 'striving-observation:snapshot'
 
+function isFinished(race?: Race): race is Race {
+  return Boolean(race) && (race!.status === 'finished' || race!.status === 'abandoned')
+}
+
+function isActive(race?: Race): race is Race {
+  return Boolean(race) && !isFinished(race)
+}
+
 function progress(race: Race): number {
   const laps = race.circuit.laps
   if (!laps.length) return 0
@@ -70,22 +78,26 @@ export function RaceDrawers(): JSX.Element {
     .filter(({ signal }) => signal.level !== 'none')
     .sort((a, b) => attentionRank(a.signal.level) - attentionRank(b.signal.level)), [snapshot])
 
-  const activeSeasons = useMemo(() => snapshot.seasons
-    .map((season) => ({
+  const seasonViews = useMemo(() => snapshot.seasons.map((season) => {
+    const races = season.raceIds.map((id) => racesById.get(id)).filter((race): race is Race => Boolean(race))
+    const active = races.filter(isActive)
+    const finished = races.filter(isFinished)
+    return {
       season,
-      races: season.raceIds.map((id) => racesById.get(id)).filter((race): race is Race => Boolean(race) && race!.status !== 'finished' && race!.status !== 'abandoned'),
-    }))
-    .filter(({ races }) => races.length > 0), [snapshot, racesById])
+      races,
+      active,
+      finished,
+      complete: races.length > 0 && active.length === 0,
+    }
+  }), [snapshot, racesById])
 
-  const finishedSeasons = useMemo(() => snapshot.seasons
-    .map((season) => ({
-      season,
-      races: season.raceIds.map((id) => racesById.get(id)).filter((race): race is Race => Boolean(race) && (race!.status === 'finished' || race!.status === 'abandoned')),
-      total: season.raceIds.length,
-    }))
-    .filter(({ races, total }) => races.length > 0 && races.length === total), [snapshot, racesById])
-
-  const finishedRaces = useMemo(() => snapshot.races.filter((race) => race.status === 'finished' || race.status === 'abandoned'), [snapshot])
+  const activeSeasons = seasonViews.filter((view) => view.active.length > 0)
+  const finishedSeasons = seasonViews.filter((view) => view.complete)
+  const finishedRacesInLiveSeasons = seasonViews
+    .filter((view) => !view.complete)
+    .flatMap((view) => view.finished.map((race) => ({ season: view.season, race })))
+  const orphanFinishedRaces = snapshot.races.filter((race) => isFinished(race) && !snapshot.seasons.some((season) => season.raceIds.includes(race.id)))
+  const finishedCount = snapshot.races.filter(isFinished).length
 
   return (
     <section className="race-drawers" aria-label="Racecraft drawers">
@@ -104,13 +116,13 @@ export function RaceDrawers(): JSX.Element {
       <details className="race-drawer championship" open>
         <summary>
           <span>CHAMPIONSHIP</span>
-          <b>{activeSeasons.reduce((sum, item) => sum + item.races.length, 0)}</b>
+          <b>{activeSeasons.reduce((sum, item) => sum + item.active.length, 0)}</b>
         </summary>
         <div className="race-drawer-body">
-          {activeSeasons.map(({ season, races }) => (
+          {activeSeasons.map(({ season, active }) => (
             <section className="race-drawer-season" key={season.id}>
-              <header><strong>{season.name}</strong><span>{races.length} active race{races.length === 1 ? '' : 's'}</span></header>
-              {races.map((race) => <RaceCompartment key={race.id} race={race} />)}
+              <header><strong>{season.name}</strong><span>{active.length} active race{active.length === 1 ? '' : 's'}</span></header>
+              {active.map((race) => <RaceCompartment key={race.id} race={race} />)}
             </section>
           ))}
         </div>
@@ -119,16 +131,35 @@ export function RaceDrawers(): JSX.Element {
       <details className="race-drawer finished">
         <summary>
           <span>FINISHED</span>
-          <b>{finishedRaces.length}</b>
+          <b>{finishedCount}</b>
         </summary>
         <div className="race-drawer-body">
-          {finishedSeasons.map(({ season, races }) => (
-            <section className="race-drawer-season finished-season" key={season.id}>
-              <header><strong>{season.name}</strong><span>season complete</span></header>
-              {races.map((race) => <RaceCompartment key={race.id} race={race} />)}
+          {finishedSeasons.length > 0 && (
+            <section className="race-drawer-finished-group">
+              <header><strong>FINISHED SEASONS</strong><span>{finishedSeasons.length}</span></header>
+              {finishedSeasons.map(({ season, finished }) => (
+                <details className="race-drawer-season finished-season" key={season.id}>
+                  <summary><strong>{season.name}</strong><span>{finished.length} race{finished.length === 1 ? '' : 's'}</span></summary>
+                  <div className="race-drawer-season-races">
+                    {finished.map((race) => <RaceCompartment key={race.id} race={race} />)}
+                  </div>
+                </details>
+              ))}
             </section>
-          ))}
-          {finishedSeasons.length === 0 && finishedRaces.map((race) => <RaceCompartment key={race.id} race={race} />)}
+          )}
+
+          {(finishedRacesInLiveSeasons.length > 0 || orphanFinishedRaces.length > 0) && (
+            <section className="race-drawer-finished-group">
+              <header><strong>FINISHED RACES</strong><span>{finishedRacesInLiveSeasons.length + orphanFinishedRaces.length}</span></header>
+              {finishedRacesInLiveSeasons.map(({ season, race }) => (
+                <div className="race-drawer-finished-race" key={race.id}>
+                  <span>{season.name}</span>
+                  <RaceCompartment race={race} />
+                </div>
+              ))}
+              {orphanFinishedRaces.map((race) => <RaceCompartment key={race.id} race={race} />)}
+            </section>
+          )}
         </div>
       </details>
     </section>
