@@ -13,6 +13,7 @@ import { angularVelocity, levelLayer, position, rotation, useStore } from './sto
 import { Checkpoint, Clock, Speed, Minimap, Intro, Help, Editor, LeaderBoard, Finished, PickColor } from './ui'
 import { useToggle } from './useToggle'
 import { PitWall } from './racecraft/PitWall'
+import { RaceGhost } from './racecraft/RaceGhost'
 
 const layers = new Layers()
 layers.enable(levelLayer)
@@ -66,6 +67,7 @@ export function App(): JSX.Element {
           </ToggledDebug>
         </Physics>
         <Track />
+        <RaceGhost />
         <Environment files="textures/dikhololo_night_1k.hdr" />
         <ToggledMap />
         <ToggledOrbitControls />
