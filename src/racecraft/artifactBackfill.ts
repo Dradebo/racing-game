@@ -59,7 +59,22 @@ const simpleCleanup: Artifact = {
   lapId: 'offline',
 }
 
-const artifacts: Artifact[] = [lawrebacComplete, lawrebacCopyFix, simpleRecovery, simpleCleanup]
+const dhis2McpNpmRelease: Artifact = {
+  id: 'artifact-dhis2-mcp-npm-v1',
+  kind: 'package_release',
+  source: 'registry',
+  label: 'dhis2-mcp-server v1.0.0 published to npm',
+  uri: 'https://www.npmjs.com/package/dhis2-mcp-server',
+  observedAt: '2026-08-22T12:00:00Z',
+  confidence: 'observed',
+  contribution: 'finishes_race',
+  seasonId: 'proof',
+  raceId: 'dhis2-mcp',
+  circuitId: 'publish',
+  lapId: 'publish',
+}
+
+const artifacts: Artifact[] = [lawrebacComplete, lawrebacCopyFix, simpleRecovery, simpleCleanup, dhis2McpNpmRelease]
 
 function attachToRace(race: Race): Race {
   const raceArtifacts = artifacts.filter((artifact) => artifact.raceId === race.id)
@@ -67,10 +82,11 @@ function attachToRace(race: Race): Race {
 
   const laps = race.circuit.laps.map((lap) => ({
     ...lap,
+    status: race.id === 'dhis2-mcp' && lap.id === 'publish' ? 'finished' as const : lap.status,
     artifacts: raceArtifacts.filter((artifact) => artifact.lapId === lap.id),
   }))
 
-  const history = (race.history ?? []).map((event) => {
+  let history = (race.history ?? []).map((event) => {
     if (race.id === 'lawrebac' && event.kind === 'finish') {
       return { ...event, label: 'Project marked complete', at: lawrebacComplete.observedAt, confidence: 'observed' as const, artifactIds: [lawrebacComplete.id] }
     }
@@ -79,6 +95,37 @@ function attachToRace(race: Race): Race {
     }
     return event
   })
+
+  if (race.id === 'dhis2-mcp' && !history.some((event) => event.id === 'dm-npm-v1')) {
+    history = [
+      ...history.filter((event) => event.id !== 'dm-3'),
+      {
+        id: 'dm-npm-v1',
+        label: 'Package published to npm',
+        detail: 'dhis2-mcp-server v1.0.0 is publicly installable from npm.',
+        kind: 'finish' as const,
+        at: dhis2McpNpmRelease.observedAt,
+        lapId: 'publish',
+        progress: 100,
+        confidence: 'observed' as const,
+        artifactIds: [dhis2McpNpmRelease.id],
+      },
+    ]
+  }
+
+  if (race.id === 'dhis2-mcp') {
+    return {
+      ...race,
+      status: 'finished',
+      health: 'green',
+      currentLapId: 'publish',
+      nextLegalLap: undefined,
+      confidence: 'observed',
+      artifacts: raceArtifacts,
+      circuit: { ...race.circuit, laps },
+      history,
+    }
+  }
 
   return {
     ...race,
