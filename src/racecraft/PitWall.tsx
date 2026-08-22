@@ -26,6 +26,10 @@ function terminalCopy(race: Race): { title: string; detail: string; tone: string
 }
 
 function advancePesaSmart(snapshot: StrivingSnapshot): StrivingSnapshot {
+  const pesa = snapshot.races.find((race) => race.id === 'pesa-smart')
+  const playthrough = pesa?.circuit.laps.find((lap) => lap.id === 'playthrough')
+  if (!pesa || playthrough?.status === 'finished') return snapshot
+
   const now = new Date().toISOString()
   const artifact: Artifact = {
     id: `artifact-pesa-playthrough-${Date.now()}`,
@@ -114,6 +118,7 @@ export function PitWall(): JSX.Element {
     if (!replayEvent?.artifactIds?.length) return []
     return (snapshot.artifacts ?? []).filter((artifact) => replayEvent.artifactIds?.includes(artifact.id))
   }, [snapshot, replayEvent])
+  const pesaPlaythroughClosed = snapshot.races.find((race) => race.id === 'pesa-smart')?.circuit.laps.find((lap) => lap.id === 'playthrough')?.status === 'finished'
 
   useEffect(() => {
     if (!selected) return
@@ -167,13 +172,14 @@ export function PitWall(): JSX.Element {
       <div className="racecraft-actions">
         <label>LOAD PRIVATE STATE<input type="file" accept="application/json,.json" onChange={(event) => onImport(event.target.files?.[0])} /></label>
         <button onClick={() => { clearLocalSnapshot(); setSnapshot(hydratedDemo); selectRace(hydratedDemo.races[0]) }}>RESET DEMO</button>
-        <button className="racecraft-primary" onClick={() => {
+        <button className="racecraft-primary" disabled={pesaPlaythroughClosed} onClick={() => {
           const next = advancePesaSmart(snapshot)
+          if (next === snapshot) return
           saveLocalSnapshot(next)
           setSnapshot(next)
           const race = next.races.find((item) => item.id === 'pesa-smart')!
           selectRace(race)
-        }}>LOG PESA PLAYTHROUGH</button>
+        }}>{pesaPlaythroughClosed ? 'PESA PLAYTHROUGH RECORDED' : 'LOG PESA PLAYTHROUGH'}</button>
       </div>
       {error && <p className="racecraft-error">{error}</p>}
 
