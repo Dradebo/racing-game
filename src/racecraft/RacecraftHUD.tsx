@@ -3,8 +3,9 @@ import type { StrivingSnapshot } from './types'
 import { loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
+import { enforceDisplayBoundary } from './displayBoundary'
 
-const hydratedDemo = withArtifactBackfill(demoSnapshot)
+const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
 const SNAPSHOT_EVENT = 'striving-observation:snapshot'
 
 function chooseRace(snapshot: StrivingSnapshot) {
@@ -14,12 +15,12 @@ function chooseRace(snapshot: StrivingSnapshot) {
 }
 
 export function RacecraftHUD(): JSX.Element | null {
-  const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? hydratedDemo)
+  const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => enforceDisplayBoundary(loadLocalSnapshot() ?? hydratedDemo))
 
   useEffect(() => {
     const handler = (event: Event) => {
       const next = (event as CustomEvent<StrivingSnapshot>).detail
-      if (next) setSnapshot(next)
+      if (next) setSnapshot(enforceDisplayBoundary(next))
     }
     window.addEventListener(SNAPSHOT_EVENT, handler)
     return () => window.removeEventListener(SNAPSHOT_EVENT, handler)
