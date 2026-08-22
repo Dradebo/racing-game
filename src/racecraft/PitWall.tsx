@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Race, StrivingSnapshot } from './types'
 import { clearLocalSnapshot, importSnapshotFile, loadLocalSnapshot } from './localState'
 import { demoSnapshot } from './demoSnapshot'
+import { publishReplayState } from './replayBridge'
 import './pitWall.css'
 
 function progress(race: Race): number {
@@ -37,6 +38,17 @@ export function PitWall(): JSX.Element {
   const replayEvent = history[Math.min(replayIndex, Math.max(history.length - 1, 0))]
   const replayAtEnd = history.length > 0 && replayIndex === history.length - 1
   const terminal = selected ? terminalCopy(selected) : null
+
+  useEffect(() => {
+    if (!selected) return
+    publishReplayState({
+      raceId: selected.id,
+      raceName: selected.name,
+      progress: replayEvent?.progress ?? progress(selected),
+      kind: replayEvent?.kind ?? 'progress',
+      status: selected.status,
+    })
+  }, [selected, replayEvent])
 
   async function onImport(file?: File) {
     if (!file) return
