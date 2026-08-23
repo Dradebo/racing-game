@@ -122,10 +122,15 @@ function returnToRacecraft() {
 export function NativeLapCapture(): JSX.Element {
   const [dpr, shadows, actions] = useStore((state) => [state.dpr, state.shadows, state.actions])
   const [saved, setSaved] = useState(false)
+  const [invalidFinish, setInvalidFinish] = useState(false)
 
   function complete(samples: LapTraceSample[], durationMs: number, checkpointAtMs?: number) {
-    if (samples.length < 10) return
+    if (samples.length < 10 || checkpointAtMs === undefined) {
+      setInvalidFinish(true)
+      return
+    }
     saveCanonicalLap({ version: 1, source: 'native_capture', capturedAt: new Date().toISOString(), durationMs, checkpointAtMs, samples })
+    setInvalidFinish(false)
     setSaved(true)
   }
 
@@ -136,6 +141,8 @@ export function NativeLapCapture(): JSX.Element {
         <p style={{ margin: '7px 0', fontSize: 12, lineHeight: 1.45 }}>Drive one clean legal lap using the donor game's own physics. Cross the start gate, checkpoint, then finish. The trace saves automatically.</p>
         {saved ? (
           <button type="button" onClick={returnToRacecraft} style={{ width: '100%', minHeight: 42, border: 0, borderRadius: 10, fontWeight: 800 }}>LAP SAVED · RETURN TO RACECRAFT</button>
+        ) : invalidFinish ? (
+          <small style={{ display: 'block', color: '#ffd18a' }}>Lap rejected: the native checkpoint was not crossed. Reset and drive the legal circuit.</small>
         ) : (
           <small style={{ opacity: .72 }}>Phone: use the touch controls below. Desktop: keyboard controls still work.</small>
         )}
@@ -152,7 +159,7 @@ export function NativeLapCapture(): JSX.Element {
           <Train />
           <Ramp args={[30, 6, 8]} position={[2, -1, 168.55]} rotation={[0, 0.49, Math.PI / 15]} />
           <Heightmap elementSize={0.5085} position={[327 - 66.5, -3.3, -473 + 213]} rotation={[-Math.PI / 2, 0, -Math.PI]} />
-          <Goal args={[0.001, 10, 18]} onCollideBegin={() => { actions.onStart(); window.dispatchEvent(new Event('racecraft-capture:start')) }} rotation={[0, 0.55, 0]} position={[-27, 1, 180]} />
+          <Goal args={[0.001, 10, 18]} onCollideBegin={() => { actions.onStart(); setInvalidFinish(false); window.dispatchEvent(new Event('racecraft-capture:start')) }} rotation={[0, 0.55, 0]} position={[-27, 1, 180]} />
           <Goal args={[0.001, 10, 18]} onCollideBegin={() => { actions.onFinish(); window.dispatchEvent(new Event('racecraft-capture:finish')) }} rotation={[0, -1.2, 0]} position={[-104, 1, -189]} />
           <Goal args={[0.001, 10, 18]} onCollideBegin={() => { actions.onCheckpoint(); window.dispatchEvent(new Event('racecraft-capture:checkpoint')) }} rotation={[0, -0.5, 0]} position={[-50, 1, -5]} />
           <BoundingBox depth={512} height={100} position={[0, 40, 0]} width={512} />
