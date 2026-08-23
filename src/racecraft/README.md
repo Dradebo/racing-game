@@ -9,3 +9,5 @@ Deployment topology:
 - `striving-observation-v0` -> preview implementation branch
 
 Private project history, obligations, evidence, resume pointers, and collaborator state must not be committed to this public repository. The renderer consumes that data through a private state-provider boundary.
+
+Preview deployment checkpoint: canonical-lap capture, route diagnostics, retrieval backfill, and current renderer integration are expected on the branch preview.
