@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Physics } from '@react-three/cannon'
 import { Cameras } from '../effects'
 import { BoundingBox, Heightmap, Ramp, Train, Vehicle } from '../models'
-import { angularVelocity, getState, position, rotation, setState, useStore } from '../store'
+import { angularVelocity, position, rotation, setState, useStore } from '../store'
 import { subscribeReplayState, type ReplayVisualState } from './replayBridge'
 
 const authoredScenes = [
