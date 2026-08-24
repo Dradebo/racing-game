@@ -17,6 +17,7 @@ import { RaceRouteProvider } from './racecraft/RaceRouteProvider'
 import { NativeLapCapture } from './racecraft/NativeLapCapture'
 import { NativeReplayStage } from './racecraft/NativeReplayStage'
 import { RouteDiagnostic } from './racecraft/RouteDiagnostic'
+import { OrientationBoard } from './racecraft/OrientationBoard'
 import { REPLAY_MODE_EVENT } from './racecraft/replayBridge'
 import './racecraft/appShell.css'
 
@@ -60,6 +61,7 @@ export function App(): JSX.Element {
         <ReplayDirector />
         <RouteDiagnostic />
       </section>
+      <OrientationBoard />
       <RaceDrawers />
       <TrophyShelf />
       <PitWall />
