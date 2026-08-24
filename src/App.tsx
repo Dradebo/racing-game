@@ -16,8 +16,10 @@ import { TrophyShelf } from './racecraft/TrophyShelf'
 import { RaceRouteProvider } from './racecraft/RaceRouteProvider'
 import { NativeLapCapture } from './racecraft/NativeLapCapture'
 import { NativeReplayStage } from './racecraft/NativeReplayStage'
+import { NativeDrivingProof } from './racecraft/NativeDrivingProof'
 import { RouteDiagnostic } from './racecraft/RouteDiagnostic'
 import { OrientationBoard } from './racecraft/OrientationBoard'
+import { KnownField } from './racecraft/KnownField'
 import { REPLAY_MODE_EVENT } from './racecraft/replayBridge'
 import './racecraft/appShell.css'
 
@@ -27,7 +29,9 @@ layers.enable(levelLayer)
 export function App(): JSX.Element {
   const [dpr, shadows] = useStore((s) => [s.dpr, s.shadows])
   const [replayActive, setReplayActive] = useState(false)
-  const captureLap = new URLSearchParams(window.location.search).get('capture-lap') === '1'
+  const params = new URLSearchParams(window.location.search)
+  const captureLap = params.get('capture-lap') === '1'
+  const nativeProof = params.get('native-proof') === '1'
 
   useEffect(() => {
     const handler = (event: Event) => setReplayActive(Boolean((event as CustomEvent<boolean>).detail))
@@ -35,6 +39,7 @@ export function App(): JSX.Element {
     return () => window.removeEventListener(REPLAY_MODE_EVENT, handler)
   }, [])
 
+  if (nativeProof) return <NativeDrivingProof />
   if (captureLap) return <NativeLapCapture />
 
   return (
@@ -62,6 +67,7 @@ export function App(): JSX.Element {
         <RouteDiagnostic />
       </section>
       <OrientationBoard />
+      <KnownField />
       <RaceDrawers />
       <TrophyShelf />
       <PitWall />
