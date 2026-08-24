@@ -39,23 +39,23 @@ export function App(): JSX.Element {
   return (
     <main className="striving-observation-app">
       <section className="racecraft-world" aria-label="Race state world">
-        <Canvas key={`${dpr}${shadows}`} dpr={[1, dpr]} shadows={shadows} camera={{ position: [-18, 70, 188], fov: 48 }}>
-          <fog attach="fog" args={['white', 0, 500]} />
-          <Sky sunPosition={[100, 10, 100]} distance={1000} />
-          <ambientLight layers={layers} intensity={0.25} />
-          <directionalLight layers={layers} position={[0, 50, 150]} intensity={1.1} castShadow />
-          <Track />
-          {replayActive ? (
-            <NativeReplayStage />
-          ) : (
+        {replayActive ? (
+          <NativeReplayStage dpr={dpr} shadows={shadows} />
+        ) : (
+          <Canvas key={`observation-${dpr}-${shadows}`} dpr={[1, dpr]} shadows={shadows} camera={{ position: [-18, 70, 188], fov: 48 }}>
+            <fog attach="fog" args={['white', 0, 500]} />
+            <Sky sunPosition={[100, 10, 100]} distance={1000} />
+            <ambientLight layers={layers} intensity={0.25} />
+            <directionalLight layers={layers} position={[0, 50, 150]} intensity={1.1} castShadow />
+            <Track />
             <RaceRouteProvider>
               <ObservationCamera />
               <RaceScene />
               <RaceGhost />
             </RaceRouteProvider>
-          )}
-          <Environment files="textures/dikhololo_night_1k.hdr" />
-        </Canvas>
+            <Environment files="textures/dikhololo_night_1k.hdr" />
+          </Canvas>
+        )}
         <RacecraftHUD />
         <ReplayDirector />
         <RouteDiagnostic />
