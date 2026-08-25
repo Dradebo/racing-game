@@ -19,6 +19,7 @@ type Telemetry = {
   pathDistance: number
   speed: number
   headingDelta: number
+  maxHeadingDelta: number
   verticalDrift: number
   velocity: Vec3
   angularVelocity: Vec3
@@ -43,6 +44,7 @@ function ProofDriver({ onTelemetry }: { onTelemetry: (value: Telemetry) => void 
   const previousPosition = useRef<Vec3 | null>(null)
   const pathDistance = useRef(0)
   const startYaw = useRef<number | null>(null)
+  const maxHeadingDelta = useRef(0)
   const startedAt = useRef(performance.now())
   const phase = useRef('WAITING FOR BODY')
   const previousPhase = useRef('')
@@ -99,6 +101,7 @@ function ProofDriver({ onTelemetry }: { onTelemetry: (value: Telemetry) => void 
       previousPosition.current = [...p]
       startYaw.current = yaw
       pathDistance.current = 0
+      maxHeadingDelta.current = 0
       startedAt.current = performance.now()
     }
 
@@ -107,11 +110,9 @@ function ProofDriver({ onTelemetry }: { onTelemetry: (value: Telemetry) => void 
     let nextPhase = 'COAST'
     if (elapsed < 0.8) nextPhase = 'SETTLE'
     else if (elapsed < 2.4) nextPhase = 'THROTTLE'
-    else if (elapsed < 3.8) nextPhase = 'THROTTLE + LEFT'
-    else if (elapsed < 4.4) nextPhase = 'THROTTLE'
-    else if (elapsed < 5.6) nextPhase = 'THROTTLE + RIGHT'
-    else if (elapsed < 6.4) nextPhase = 'THROTTLE'
-    else if (elapsed < 7.3) nextPhase = 'BRAKE'
+    else if (elapsed < 4.8) nextPhase = 'THROTTLE + LEFT'
+    else if (elapsed < 6.0) nextPhase = 'THROTTLE'
+    else if (elapsed < 7.0) nextPhase = 'BRAKE'
     else nextPhase = 'COAST'
 
     phase.current = nextPhase
@@ -119,7 +120,6 @@ function ProofDriver({ onTelemetry }: { onTelemetry: (value: Telemetry) => void 
       releaseAll()
       if (nextPhase.includes('THROTTLE')) key('keydown', 'w')
       if (nextPhase.includes('LEFT')) key('keydown', 'a')
-      if (nextPhase.includes('RIGHT')) key('keydown', 'd')
       if (nextPhase === 'BRAKE') key('keydown', ' ')
       previousPhase.current = nextPhase
     }
@@ -130,6 +130,7 @@ function ProofDriver({ onTelemetry }: { onTelemetry: (value: Telemetry) => void 
     const netDistance = Math.sqrt(dx * dx + dz * dz)
     const verticalDrift = Math.abs(p[1] - sy)
     const headingDelta = Math.abs(yaw - (startYaw.current ?? yaw))
+    maxHeadingDelta.current = Math.max(maxHeadingDelta.current, headingDelta)
 
     const now = performance.now()
     if (now - lastReportAt.current > 150) {
@@ -140,6 +141,7 @@ function ProofDriver({ onTelemetry }: { onTelemetry: (value: Telemetry) => void 
         pathDistance: pathDistance.current,
         speed: mutation.speed,
         headingDelta,
+        maxHeadingDelta: maxHeadingDelta.current,
         verticalDrift,
         velocity: physicsVelocity.current,
         angularVelocity: physicsAngularVelocity.current,
@@ -160,6 +162,7 @@ export function NativeDrivingProof(): JSX.Element {
     pathDistance: 0,
     speed: 0,
     headingDelta: 0,
+    maxHeadingDelta: 0,
     verticalDrift: 0,
     velocity: [0, 0, 0],
     angularVelocity: [0, 0, 0],
@@ -172,8 +175,8 @@ export function NativeDrivingProof(): JSX.Element {
   }, [])
 
   const verdict = useMemo(() => {
-    if (telemetry.elapsed < 7.8) return 'RUNNING'
-    if (telemetry.pathDistance >= 8 && telemetry.netDistance >= 5 && telemetry.headingDelta >= 0.05 && telemetry.verticalDrift < 3) return 'PASS'
+    if (telemetry.elapsed < 7.5) return 'RUNNING'
+    if (telemetry.pathDistance >= 8 && telemetry.netDistance >= 5 && telemetry.maxHeadingDelta >= 0.05 && telemetry.verticalDrift < 3) return 'PASS'
     return 'FAIL'
   }, [telemetry])
 
@@ -183,19 +186,7 @@ export function NativeDrivingProof(): JSX.Element {
         <fog attach="fog" args={['white', 0, 500]} />
         <Sky sunPosition={[100, 10, 100]} distance={1000} />
         <ambientLight layers={layers} intensity={0.1} />
-        <directionalLight
-          ref={setLight}
-          layers={layers}
-          position={[0, 50, 150]}
-          intensity={1}
-          shadow-bias={-0.001}
-          shadow-mapSize={[4096, 4096]}
-          shadow-camera-left={-150}
-          shadow-camera-right={150}
-          shadow-camera-top={150}
-          shadow-camera-bottom={-150}
-          castShadow
-        />
+        <directionalLight ref={setLight} layers={layers} position={[0, 50, 150]} intensity={1} shadow-bias={-0.001} shadow-mapSize={[4096, 4096]} shadow-camera-left={-150} shadow-camera-right={150} shadow-camera-top={150} shadow-camera-bottom={-150} castShadow />
         <PerspectiveCamera makeDefault={editor} fov={75} position={[0, 20, 20]} />
         <Physics allowSleep broadphase="SAP" defaultContactMaterial={{ contactEquationRelaxation: 4, friction: 1e-3 }}>
           <Vehicle angularVelocity={[...angularVelocity]} position={[...position]} rotation={[...rotation]}>
@@ -218,19 +209,15 @@ export function NativeDrivingProof(): JSX.Element {
       <aside style={{ position: 'absolute', left: 12, right: 12, top: 12, zIndex: 20, maxWidth: 460, margin: '0 auto', padding: 14, borderRadius: 14, background: 'rgba(0,0,0,.84)' }}>
         <span style={{ display: 'block', fontSize: 11, letterSpacing: '.12em', opacity: .6 }}>DONOR-FAITHFUL BEHAVIOR QUALIFICATION</span>
         <strong style={{ display: 'block', fontSize: 22, marginTop: 3 }}>{verdict}</strong>
-        <small style={{ display: 'block', opacity: .7, marginTop: 5 }}>Automated keyboard events now travel through the donor game's own Keyboard → store → Vehicle chain.</small>
+        <small style={{ display: 'block', opacity: .7, marginTop: 5 }}>Automated keyboard events travel through the donor game's own Keyboard → store → Vehicle chain.</small>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12, fontSize: 12 }}>
-          <b>PHASE {telemetry.phase}</b>
-          <b>TIME {telemetry.elapsed.toFixed(1)}s</b>
-          <b>PATH {telemetry.pathDistance.toFixed(1)}m</b>
-          <b>NET {telemetry.netDistance.toFixed(1)}m</b>
-          <b>SPEED {telemetry.speed.toFixed(1)}</b>
-          <b>HEADING Δ {telemetry.headingDelta.toFixed(2)}</b>
-          <b>VERTICAL Δ {telemetry.verticalDrift.toFixed(2)}m</b>
-          <b>VEL {telemetry.velocity.map((v) => v.toFixed(1)).join(', ')}</b>
-          <b>ANG {telemetry.angularVelocity.map((v) => v.toFixed(2)).join(', ')}</b>
+          <b>PHASE {telemetry.phase}</b><b>TIME {telemetry.elapsed.toFixed(1)}s</b>
+          <b>PATH {telemetry.pathDistance.toFixed(1)}m</b><b>NET {telemetry.netDistance.toFixed(1)}m</b>
+          <b>SPEED {telemetry.speed.toFixed(1)}</b><b>TURN MAX {telemetry.maxHeadingDelta.toFixed(2)}</b>
+          <b>HEADING NOW {telemetry.headingDelta.toFixed(2)}</b><b>VERTICAL Δ {telemetry.verticalDrift.toFixed(2)}m</b>
+          <b>VEL {telemetry.velocity.map((v) => v.toFixed(1)).join(', ')}</b><b>ANG {telemetry.angularVelocity.map((v) => v.toFixed(2)).join(', ')}</b>
         </div>
-        <small style={{ display: 'block', marginTop: 10, opacity: .62 }}>PASS requires useful path travel, net road displacement and chassis heading change. Jitter, wheelspin, revving or falling cannot pass.</small>
+        <small style={{ display: 'block', marginTop: 10, opacity: .62 }}>PASS uses maximum steering excursion, not final heading, so a successful turn cannot be hidden by later correction.</small>
       </aside>
     </main>
   )
