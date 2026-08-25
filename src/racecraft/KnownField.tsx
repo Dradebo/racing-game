@@ -5,6 +5,7 @@ import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
 import { enforceDisplayBoundary } from './displayBoundary'
 import { projectCorpus, projectCorpusSummary } from './projectCorpus'
+import { raceCandidates } from './raceCandidates'
 import { REPLAY_MODE_EVENT } from './replayBridge'
 
 const hydratedDemo = enforceDisplayBoundary(withArtifactBackfill(demoSnapshot))
@@ -40,16 +41,19 @@ export function KnownField(): JSX.Element | null {
   }, [])
 
   const field = useMemo(() => {
-    const ownedOrContributed = projectCorpus.filter((entry) => entry.relationship !== 'Observed')
     const represented = projectCorpus.filter((entry) => snapshot.races.some((race) => raceMatchesRepository(race.name, entry.repository)))
     const representedRepos = new Set(represented.map((entry) => entry.repository))
-    const unrepresentedStriving = ownedOrContributed.filter((entry) => !representedRepos.has(entry.repository))
-    const observedReferences = projectCorpus.filter((entry) => entry.relationship === 'Observed')
+    const candidateRows = raceCandidates.filter((candidate) => !representedRepos.has(candidate.repository))
+    const ready = candidateRows.filter((candidate) => candidate.readiness === 'ready_to_reconstruct')
+    const needsEvidence = candidateRows.filter((candidate) => candidate.readiness === 'needs_more_evidence')
+    const references = candidateRows.filter((candidate) => candidate.readiness === 'reference_only')
+    const ownedOrContributed = projectCorpus.filter((entry) => entry.relationship !== 'Observed')
 
     return {
       represented,
-      unrepresentedStriving,
-      observedReferences,
+      ready,
+      needsEvidence,
+      references,
       ownedOrContributed,
     }
   }, [snapshot])
@@ -63,35 +67,50 @@ export function KnownField(): JSX.Element | null {
           <span style={{ display: 'block', fontSize: 11, letterSpacing: '.14em', opacity: .55 }}>KNOWN FIELD</span>
           <strong style={{ display: 'block', fontSize: 20, marginTop: 3 }}>{projectCorpusSummary.total} catalogued · {projectCorpusSummary.constellations} areas</strong>
           <small style={{ display: 'block', opacity: .66, marginTop: 5, maxWidth: 560 }}>
-            The mirror knows about more work than it currently promotes into races. Observed upstream projects remain references, not obligations.
+            Corpus knowledge is wider than canonical race state. Promotion happens only when the evidence supports a real striving object.
           </small>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12 }}>
           <b>RACE-REPRESENTED {field.represented.length}</b>
-          <b>OWNED / CONTRIBUTED {field.ownedOrContributed.length}</b>
-          <b>REFERENCE ONLY {field.observedReferences.length}</b>
+          <b>READY TO RECONSTRUCT {field.ready.length}</b>
+          <b>NEEDS EVIDENCE {field.needsEvidence.length}</b>
+          <b>REFERENCE ONLY {field.references.length}</b>
         </div>
       </div>
 
       <div style={{ marginTop: 15, paddingTop: 13, borderTop: '1px solid rgba(255,255,255,.08)' }}>
-        <span style={{ display: 'block', fontSize: 10, letterSpacing: '.12em', opacity: .5, marginBottom: 7 }}>KNOWN STRIVING NOT YET IN RACE STATE</span>
-        {field.unrepresentedStriving.length ? field.unrepresentedStriving.map((entry) => (
-          <div key={entry.repository} style={{ padding: '9px 0', borderTop: '1px solid rgba(255,255,255,.06)' }}>
-            <strong style={{ display: 'block', fontSize: 13 }}>{entry.repository.split('/').pop()}</strong>
-            <small style={{ display: 'block', opacity: .65, marginTop: 2 }}>{entry.relevance}</small>
-            <small style={{ display: 'block', opacity: .5, marginTop: 2 }}>{entry.relationship} · {entry.evidenceStatus}</small>
-            <small style={{ display: 'block', opacity: .72, marginTop: 4 }}>Last known next action: {entry.nextAction}</small>
+        <span style={{ display: 'block', fontSize: 10, letterSpacing: '.12em', opacity: .5, marginBottom: 7 }}>READY TO RECONSTRUCT</span>
+        {field.ready.length ? field.ready.map((candidate) => (
+          <div key={candidate.repository} style={{ padding: '9px 0', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+            <strong style={{ display: 'block', fontSize: 13 }}>{candidate.name}</strong>
+            <small style={{ display: 'block', opacity: .65, marginTop: 2 }}>{candidate.relevance}</small>
+            <small style={{ display: 'block', opacity: .72, marginTop: 4 }}>Last known next action: {candidate.lastKnownNextAction}</small>
+            <small style={{ display: 'block', opacity: .5, marginTop: 3 }}>{candidate.rationale}</small>
           </div>
-        )) : <small style={{ opacity: .62 }}>All known owned/contributed corpus entries are represented in race state.</small>}
+        )) : <small style={{ opacity: .62 }}>No unrepresented candidates are already strong enough for immediate reconstruction.</small>}
       </div>
 
-      <details style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.08)' }}>
-        <summary style={{ cursor: 'pointer', fontSize: 11, letterSpacing: '.1em', opacity: .68 }}>REFERENCE MATERIAL · {field.observedReferences.length}</summary>
+      <details open style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.08)' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 11, letterSpacing: '.1em', opacity: .68 }}>KNOWN STRIVING · NEEDS MORE EVIDENCE · {field.needsEvidence.length}</summary>
         <div style={{ marginTop: 10, display: 'grid', gap: 7 }}>
-          {field.observedReferences.map((entry) => (
-            <div key={entry.repository}>
-              <strong style={{ fontSize: 12 }}>{entry.repository.split('/').pop()}</strong>
-              <small style={{ opacity: .5 }}> · {entry.constellation}</small>
+          {field.needsEvidence.map((candidate) => (
+            <div key={candidate.repository} style={{ padding: '7px 0' }}>
+              <strong style={{ display: 'block', fontSize: 12 }}>{candidate.name}</strong>
+              <small style={{ display: 'block', opacity: .6 }}>{candidate.relevance}</small>
+              <small style={{ display: 'block', opacity: .72, marginTop: 3 }}>{candidate.lastKnownNextAction}</small>
+              <small style={{ display: 'block', opacity: .45, marginTop: 2 }}>Current race state not yet adjudicated.</small>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      <details style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.08)' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 11, letterSpacing: '.1em', opacity: .68 }}>REFERENCE MATERIAL · {field.references.length}</summary>
+        <div style={{ marginTop: 10, display: 'grid', gap: 7 }}>
+          {field.references.map((candidate) => (
+            <div key={candidate.repository}>
+              <strong style={{ fontSize: 12 }}>{candidate.name}</strong>
+              <small style={{ opacity: .5 }}> · {candidate.constellation}</small>
             </div>
           ))}
         </div>
