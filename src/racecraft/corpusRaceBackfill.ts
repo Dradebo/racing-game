@@ -16,6 +16,16 @@ const evidence: Record<string, { label: string; uri?: string; observedAt?: strin
     uri: 'https://github.com/Dradebo/personal-lore-showcase/commit/d1fcb837fd47e26986a554847e79239b42894d63',
     observedAt: '2026-06-14T00:24:15Z',
   },
+  'Dradebo/dhis2Sync': {
+    label: 'Owned implementation history: desktop sync app working state, org-unit picker/completeness work and documented desktop-first direction',
+    uri: 'https://github.com/Dradebo/dhis2Sync/commit/e8e333038caae1a328f41fcce319a0abdb2de2ab',
+    observedAt: '2025-12-08T06:40:24Z',
+  },
+  'Dradebo/Results-Wizard': {
+    label: 'Owned implementation history: report preview and private result-page polish on the results portal',
+    uri: 'https://github.com/Dradebo/Results-Wizard/commit/08ef263271557b2520b3d860677dbacadd2bb0c1',
+    observedAt: '2026-06-12T07:37:57Z',
+  },
 }
 
 function slug(repository: string): string {
