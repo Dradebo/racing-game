@@ -1,6 +1,7 @@
 import type { Artifact, Race, StrivingSnapshot } from './types'
 import { withRetrievalBackfill } from './retrievalBackfill'
 import { withCorpusRaceBackfill } from './corpusRaceBackfill'
+import { withManualStateBackfill } from './manualStateBackfill'
 
 const lawrebacComplete: Artifact = {
   id: 'artifact-lawrebac-complete',
@@ -147,5 +148,5 @@ export function withArtifactBackfill(snapshot: StrivingSnapshot): StrivingSnapsh
     ],
     races: snapshot.races.map(attachToRace),
   }
-  return withCorpusRaceBackfill(withRetrievalBackfill(base))
+  return withManualStateBackfill(withCorpusRaceBackfill(withRetrievalBackfill(base)))
 }
