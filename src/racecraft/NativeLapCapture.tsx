@@ -6,7 +6,7 @@ import { Environment, Sky } from '@react-three/drei'
 import { Keyboard } from '../controls'
 import { Cameras } from '../effects'
 import { BoundingBox, Goal, Heightmap, Ramp, Track, Train, Vehicle } from '../models'
-import { angularVelocity, position, rotation, useStore } from '../store'
+import { angularVelocity, mutation, position, rotation, useStore } from '../store'
 import { saveCanonicalLap, type LapTraceSample } from './canonicalLap'
 
 function Recorder({ onComplete }: { onComplete: (samples: LapTraceSample[], durationMs: number, checkpointAtMs?: number) => void }) {
@@ -56,6 +56,7 @@ function Recorder({ onComplete }: { onComplete: (samples: LapTraceSample[], dura
       t: now - startAt.current,
       position: [p.x, p.y, p.z],
       quaternion: [q.x, q.y, q.z, q.w],
+      speed: mutation.speed,
     })
   })
 
