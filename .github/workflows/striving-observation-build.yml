@@ -24,3 +24,5 @@ jobs:
 
       - name: Build
         run: yarn build
+
+# Verification trigger: single authoritative build gate.
