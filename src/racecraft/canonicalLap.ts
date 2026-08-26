@@ -7,6 +7,7 @@ export type LapTraceSample = {
   t: number
   position: [number, number, number]
   quaternion: [number, number, number, number]
+  speed?: number
 }
 
 export type CanonicalLapTrace = {
@@ -23,7 +24,14 @@ export type CanonicalLapRoute = CurvePath<Vector3>
 function isSample(value: unknown): value is LapTraceSample {
   if (!value || typeof value !== 'object') return false
   const sample = value as Partial<LapTraceSample>
-  return typeof sample.t === 'number' && Array.isArray(sample.position) && sample.position.length === 3 && Array.isArray(sample.quaternion) && sample.quaternion.length === 4
+  return (
+    typeof sample.t === 'number' &&
+    Array.isArray(sample.position) &&
+    sample.position.length === 3 &&
+    Array.isArray(sample.quaternion) &&
+    sample.quaternion.length === 4 &&
+    (sample.speed === undefined || typeof sample.speed === 'number')
+  )
 }
 
 export function isCanonicalLapTrace(value: unknown): value is CanonicalLapTrace {
