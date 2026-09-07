@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import type { StrivingSnapshot } from './types'
 import { demoSnapshot } from './demoSnapshot'
 import { withArtifactBackfill } from './artifactBackfill'
-import { loadLocalSnapshot } from './localState'
+import { loadLocalSnapshot, saveLocalSnapshot } from './localState'
 import { projectHaramBall } from './haramBallProjection'
+import { HARAM_BALL_MAX_STARTERS, substituteRace } from './haramBallLineup'
 import './haramBall.css'
 
 const hydratedDemo = withArtifactBackfill(demoSnapshot)
@@ -16,9 +17,14 @@ function inspectRace(raceId: string) {
   window.dispatchEvent(new CustomEvent(INSPECT_EVENT, { detail: { raceId } }))
 }
 
+function broadcastSnapshot(snapshot: StrivingSnapshot) {
+  window.dispatchEvent(new CustomEvent(SNAPSHOT_EVENT, { detail: snapshot }))
+}
+
 export function HaramBallBoard(): JSX.Element {
   const [snapshot, setSnapshot] = useState<StrivingSnapshot>(() => loadLocalSnapshot() ?? hydratedDemo)
   const [view, setView] = useState<View>('overview')
+  const [selectedOutgoing, setSelectedOutgoing] = useState<string | undefined>()
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -36,6 +42,16 @@ export function HaramBallBoard(): JSX.Element {
   const frozen = players.filter((player) => player.squadStatus === 'Frozen')
   const retired = players.filter((player) => player.squadStatus === 'Retired')
   const recentEvents = snapshot.races.flatMap((race) => (race.history ?? []).map((event) => ({ ...event, raceId: race.id, raceName: race.name }))).sort((a, b) => (b.at ?? '').localeCompare(a.at ?? '')).slice(0, 12)
+
+  function applySubstitution(incomingId: string) {
+    const outgoingId = starters.length >= HARAM_BALL_MAX_STARTERS ? selectedOutgoing : undefined
+    const next = substituteRace(snapshot, incomingId, outgoingId)
+    if (next === snapshot) return
+    saveLocalSnapshot(next)
+    setSnapshot(next)
+    setSelectedOutgoing(undefined)
+    broadcastSnapshot(next)
+  }
 
   return (
     <section className="haram-ball" aria-label="Haram Ball manager screen">
@@ -72,9 +88,16 @@ export function HaramBallBoard(): JSX.Element {
       </div>}
 
       {view === 'lineup' && <div className="haram-ball__manager-panel">
-        <div className="haram-ball__lineup-summary"><b>{starters.length}/4 active lanes</b><span>{starters.length > 4 ? 'OVER CAPACITY — substitution required' : 'Within Haram Ball WIP law'}</span></div>
-        <div className="haram-ball__lineup-list">{starters.map((player, index) => <button key={player.id} onClick={() => inspectRace(player.id)}><span>{index + 1}</span><strong>{player.name}</strong><small>{player.nextMove}</small><b>{player.possession}</b></button>)}</div>
-        {bench.length > 0 && <SquadRail title="AVAILABLE SUBSTITUTES" players={bench} />}
+        <div className="haram-ball__lineup-summary"><b>{starters.length}/{HARAM_BALL_MAX_STARTERS} active lanes</b><span>{starters.length > HARAM_BALL_MAX_STARTERS ? 'OVER CAPACITY — illegal squad state' : starters.length === HARAM_BALL_MAX_STARTERS ? 'Pitch full — choose who comes off first' : 'Open lane available'}</span></div>
+        <div className="haram-ball__lineup-pitch" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const incomingId = event.dataTransfer.getData('text/haram-ball-race'); if (incomingId) applySubstitution(incomingId) }}>
+          <div className="haram-ball__lineup-marking halfway" /><div className="haram-ball__lineup-marking centre" />
+          <div className="haram-ball__lineup-slots">
+            {starters.map((player, index) => <button key={player.id} className={selectedOutgoing === player.id ? 'selected-out' : ''} onClick={() => setSelectedOutgoing((current) => current === player.id ? undefined : player.id)}><span>{index + 1}</span><strong>{player.name}</strong><small>{player.currentLap}</small><em>{selectedOutgoing === player.id ? 'COMING OFF' : player.possession}</em></button>)}
+            {Array.from({ length: Math.max(HARAM_BALL_MAX_STARTERS - starters.length, 0) }).map((_, index) => <div className="haram-ball__empty-slot" key={`slot-${index}`}>OPEN LANE</div>)}
+          </div>
+        </div>
+        <p className="haram-ball__lineup-hint">Drag a bench player onto the pitch. If all four lanes are occupied, select the starter coming off first.</p>
+        {bench.length > 0 && <section className="haram-rail haram-ball__subs"><h2>AVAILABLE SUBSTITUTES</h2><div>{bench.map((player) => <button key={player.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/haram-ball-race', player.id)} onDoubleClick={() => applySubstitution(player.id)}><span>BENCH</span><strong>{player.name}</strong><small>{player.nextMove}</small><footer><em>DRAG ON</em><b>{player.progress}%</b></footer></button>)}</div></section>}
       </div>}
 
       {view === 'inbox' && <div className="haram-ball__manager-panel haram-ball__inbox">
