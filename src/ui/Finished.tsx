@@ -37,7 +37,7 @@ export const Finished = (): JSX.Element => {
   useEffect(updatePosition, [scoreId, scores])
 
   return (
-    <div className="finished">
+    <div className="legacy-game-finished">
       <div className="finished-header">
         <h1>Good job! Your time was {readableTime(time)} seconds</h1>
       </div>
